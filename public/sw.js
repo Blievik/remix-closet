@@ -1,6 +1,6 @@
 /* Remix Closet service worker: opens instantly and works offline.
    Bump VERSION whenever you change index.html, app.js or app.css so phones pick up the update. */
-const VERSION = "remix-v2";
+const VERSION = "remix-v3";
 const SHELL = ["./", "./index.html", "./app.css", "./app.js", "./manifest.webmanifest",
   "./icons/icon-192.png", "./icons/icon-512.png", "./icons/apple-touch-icon.png", "./icons/favicon-32.png"];
 const FONT_CACHE = "remix-fonts";
