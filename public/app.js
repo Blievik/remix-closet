@@ -62,7 +62,8 @@ const sizeLabel=it=>it.cat==='shoe'?`US ${it.size}`:it.size;
 const money=n=>'$'+Math.round(n).toLocaleString();
 
 /* ================= Seed ================= */
-function seed(){
+function seed(){return []}
+function seedUnused(){
   const now=Date.now();let k=0;
   const mk=(cat,type,name,color,size,price,wears,last,material,brand)=>({id:uid(),cat,type,name,color,size,price,wears,lastWorn:daysAgo(last),material:material||'',brand:brand||'',added:now-(k++)*1000,example:true});
   return [
@@ -166,7 +167,7 @@ function loadLocal(){
     if(s&&Array.isArray(s.items)){applyBlob(s);return}
     const old=JSON.parse(localStorage.getItem('remix-closet-v2')||'null');
     if(old&&Array.isArray(old.items)){
-      S.items=old.items.map(i=>Object.assign({added:Date.now()},i));
+      S.items=old.items.filter(i=>i&&!i.example).map(i=>Object.assign({added:Date.now()},i));
       S.profile=Object.assign(S.profile,old.profile||{});S.looks=(old.looks||[]).map(l=>({id:l.id||uid(),ids:l.ids,at:Date.now()}));
       S.weather=old.weather||S.weather;S.liked=old.liked||{};
       S.localPosts=(old.myPosts||[]).map(p=>({id:p.id,at:Date.now(),caption:p.caption||'',title:'',pieces:(p.pieces||[]).map(pc=>({type:pc.type,color:pc.color,name:''}))}));
@@ -174,7 +175,7 @@ function loadLocal(){
   }catch(e){}
 }
 function applyBlob(s){
-  if(Array.isArray(s.items))S.items=s.items;
+  if(Array.isArray(s.items))S.items=s.items.filter(i=>i&&!i.example);
   const p=s.prof||s;
   if(p.profile)S.profile=Object.assign({},S.profile,p.profile);
   if(p.weather)S.weather=Object.assign({},S.weather,p.weather);
@@ -443,7 +444,7 @@ function renderCloset(){
   const value=S.items.reduce((s,i)=>s+(i.price||0),0);
   const forgotten=S.items.filter(i=>fit(i).k!=='no'&&(i.lastWorn?daysSince(i.lastWorn)>=30:Date.now()-(i.added||0)>30*864e5)).sort((a,b)=>(daysSince(b.lastWorn)??999)-(daysSince(a.lastWorn)??999)).slice(0,6);
   let h='';
-  if(examplesOnly())h+=`<div class="banner info"><div class="grow">This is an example closet. Add your own pieces, then clear the examples.</div><button class="btn-sm" id="clear-ex">Clear examples</button></div>`;
+  if(!S.items.length)h+=`<div class="banner info"><div class="grow">Your closet is empty. Add your first piece to start mixing outfits.</div></div>`;
   h+=`<div class="toolbar"><h2>My closet</h2><span class="muted" style="font-variant-numeric:tabular-nums">${S.items.length} pieces · ${money(value)}</span></div>`;
   if(forgotten.length)h+=`<section><div class="toolbar" style="margin-bottom:8px"><span class="label">Forgotten pieces</span><span class="note">Not worn in 30+ days</span></div>
     <div class="strip">${forgotten.map(i=>`<button class="mini" data-style-around="${i.id}">${visual(i)}<span class="name">${esc(i.name)}</span><span class="worn">${wornLabel(i)}</span><span class="link">Style it</span></button>`).join('')}</div></section>`;
@@ -462,7 +463,7 @@ function initials(n){return(String(n||'?').trim().split(/\s+/).map(w=>w[0]).join
 function hueOf(s){let h=0;for(const c of String(s))h=(h*31+c.charCodeAt(0))%360;return h}
 function renderFeed(){
   const real=[...S.localPosts.map(p=>Object.assign({local:true},p)),...(CAP.feed?S.posts:[])].sort((a,b)=>b.at-a.at);
-  const posts=real.length<3?[...real,...EXAMPLE_POSTS]:real;
+  const posts=real;
   let h=`<div class="toolbar"><h2>Community looks</h2><span class="muted">Restyled, not rebought</span></div>`;
   if(CAP.checked&&!CAP.feed)h+=`<p class="note">The shared feed isn’t reachable right now, so you’re seeing looks saved on this phone.</p>`;
   h+='<div class="rows">';
@@ -480,6 +481,7 @@ function renderFeed(){
     <div class="post-foot"><button class="like" data-like="${esc(key)}" aria-pressed="${liked}" aria-label="Like">${IC.heart}${n}</button><span class="muted" style="font-size:13px">${p.pieces.length} pieces already owned</span>
     ${mine?`<button class="del" data-delpost="${esc(key)}">Delete</button>`:!p.ex?`<button class="del" data-report="${esc(p.id)}">Report</button>`:''}</div></article>`;
   });
+  if(!posts.length)h+='<p class="note">No looks shared yet. Build an outfit on the Style tab and tap Share.</p>';
   view.innerHTML=h+'</div>';
 }
 function agoLabel(t){const m=Math.max(0,Math.round((Date.now()-t)/6e4));if(m<1)return'now';if(m<60)return m+'m';const h=Math.round(m/60);if(h<24)return h+'h';return Math.round(h/24)+'d'}
@@ -524,7 +526,7 @@ function renderMe(){
   ${INSTALL.evt||INSTALL.ios?`<section class="panel"><div><h3>Put Remix on your home screen</h3><p class="note">${INSTALL.evt?'It opens full screen like an app and works offline.':'In Safari, tap Share, then Add to Home Screen. It opens full screen like an app and works offline.'}</p></div>${INSTALL.evt?'<button class="primary-btn" id="install-me">Install Remix</button>':''}</section>`:''}
   <section class="panel"><div><h3>Your data</h3><p class="note">Your closet lives on this phone. Download a backup before you switch phones or clear your browser.</p></div>
   <div class="two"><button class="secondary-btn" id="export-btn">Download backup</button><label class="secondary-btn" for="import-file" style="text-align:center;cursor:pointer">Restore backup<input id="import-file" type="file" accept="application/json,.json" class="sr"></label></div></section>
-  <button class="danger-btn" id="reset">Start over with the example closet</button>`;
+  <button class="danger-btn" id="reset">Clear my closet and start over</button>`;
   view.innerHTML=h;
 }
 
@@ -768,10 +770,10 @@ function onClick(e){
   else if(t.id==='install-me')installApp();
   else if(t.id==='clear-ex'){if(!t.classList.contains('armed')){t.classList.add('armed');t.textContent='Tap to confirm';return}
     const ex=S.items.filter(i=>i.example);S.items=S.items.filter(i=>!i.example);ex.forEach(i=>dropItem(i.id));S.looks=[];S.log=[];saveProfile();render();toast('Examples cleared. Add your first piece.')}
-  else if(t.id==='reset'){if(!t.classList.contains('armed')){t.classList.add('armed');t.textContent='Tap again to replace your closet with the examples';return}
+  else if(t.id==='reset'){if(!t.classList.contains('armed')){t.classList.add('armed');t.textContent='Tap again to remove every piece';return}
     const old=S.items.slice();S.items=seed();old.forEach(i=>dropItem(i.id));S.items.forEach(saveItem);
-    Object.assign(S,{looks:[],log:[],profile:{top:'M',middle:'M',shoe:8,outfitValue:60,style:'women',name:S.profile.name||''},idx:{top:0,middle:0,shoe:0},locked:{},suggestion:null,recent:[],weather:{temp:48,cond:'cloudy'}});
-    saveProfile();render();toast('Closet reset to the examples')}
+    Object.assign(S,{looks:[],log:[],profile:{top:'M',middle:'M',shoe:8,outfitValue:60,style:'women',name:S.profile.name||'',fresh:1},idx:{top:0,middle:0,shoe:0},locked:{},suggestion:null,recent:[],weather:{temp:48,cond:'cloudy'}});
+    saveProfile();render();toast('Closet cleared. Add your first piece.')}
 }
 view.addEventListener('click',onClick);sheet.addEventListener('click',e=>{const b=e.target.closest('[data-style-around],[data-edit]');if(b)onClick(e)});
 view.addEventListener('change',e=>{
@@ -811,5 +813,7 @@ window.addEventListener('online',boot);
 window.addEventListener('offline',()=>{CAP.ai=false;render()});
 if('serviceWorker' in navigator&&location.protocol!=='file:')window.addEventListener('load',()=>{navigator.serviceWorker.register('sw.js').catch(()=>{})});
 const hashTab=location.hash.slice(1);if(['style','closet','feed','me'].includes(hashTab))S.tab=hashTab;
-loadLocal();render();boot();
+loadLocal();
+if(!S.profile.fresh){S.items=[];S.looks=[];S.log=[];S.profile.fresh=1;persistLocal()}
+render();boot();
 })();
