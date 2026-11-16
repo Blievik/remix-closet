@@ -1,0 +1,22 @@
+{
+  "name": "Remix Closet",
+  "short_name": "Remix",
+  "description": "Make new outfits from clothes you already own.",
+  "id": "./",
+  "start_url": "./#style",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F7F3F5",
+  "theme_color": "#B3306A",
+  "categories": ["lifestyle", "shopping", "social"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Style me", "url": "./#style", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] },
+    { "name": "My closet", "url": "./#closet", "icons": [{ "src": "icons/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

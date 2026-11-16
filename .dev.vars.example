@@ -1,0 +1,3 @@
+# Copy to .dev.vars to test AI features locally with `npm run dev`. Never commit .dev.vars.
+ANTHROPIC_API_KEY=sk-ant-your-key-here
+ADMIN_KEY=make-up-a-long-random-password

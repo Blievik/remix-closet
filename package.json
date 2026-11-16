@@ -1,0 +1,14 @@
+{
+  "name": "remix-closet",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Remix Closet: make new outfits from clothes you already own.",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.45.0"
+  }
+}
