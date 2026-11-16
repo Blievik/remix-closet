@@ -86,7 +86,7 @@ async function handleApi(request, env, url) {
 
   const route = ROUTES[`${request.method} ${url.pathname.replace(/^\/api\//, "").replace(/\/+$/, "")}`];
   if (!route) return json({ error: "not_found", message: "Unknown API route." }, 404, cors);
-  if (route.ai && !env.ANTHROPIC_API_KEY) return json({ error: "ai_off", message: "AI features aren’t set up on this site." }, 503, cors);
+  if (route.ai && !aiOn(env)) return json({ error: "ai_off", message: "AI features are turned off on this site." }, 503, cors);
   if (route.db && !env.DB) return json({ error: "feed_off", message: "The shared feed isn’t set up on this site." }, 503, cors);
 
   if (route.limiter && env[route.limiter]) {
@@ -111,8 +111,12 @@ async function handleApi(request, env, url) {
   return json(out.body, out.status, { ...cors, "cache-control": "no-store" });
 }
 
+// Claude only runs when AI_ENABLED is "true" in wrangler.toml AND the API key secret is set.
+// With it off, the app uses its built-in stylist and reads colors from photos itself: no API cost.
+function aiOn(env) { return env.AI_ENABLED === "true" && Boolean(env.ANTHROPIC_API_KEY); }
+
 function health(_b, env) {
-  return ok({ ok: true, ai: Boolean(env.ANTHROPIC_API_KEY), feed: Boolean(env.DB) });
+  return ok({ ok: true, ai: aiOn(env), feed: Boolean(env.DB) });
 }
 
 /* ---------------- AI stylist ---------------- */
