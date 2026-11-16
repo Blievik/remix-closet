@@ -41,6 +41,11 @@ const MAX_BODY_BYTES = 6_000_000;
 const MAX_IMAGE_CHARS = 5_600_000;
 const REPORTS_TO_HIDE = 3;
 const MAX_STORED_POSTS = 1000;
+// Daily AI budget. Each visitor (by IP) gets PER_VISITOR_DAILY Claude calls a day, and the whole
+// site gets SITE_DAILY. Past either one the app quietly uses its built-in stylist instead.
+// Override either in wrangler.toml [vars] as AI_PER_VISITOR_DAILY / AI_SITE_DAILY.
+const PER_VISITOR_DAILY = 30;
+const SITE_DAILY = 1500;
 
 export default {
   async fetch(request, env) {
@@ -66,6 +71,7 @@ const ROUTES = {
   "POST read-item": { fn: readItem, limiter: "AI_LIMITER", ai: true },
   "POST read-tag": { fn: readTag, limiter: "AI_LIMITER", ai: true },
   "GET feed": { fn: feed, limiter: "READ_LIMITER", db: true },
+  "GET weather": { fn: weather, limiter: "READ_LIMITER" },
   "POST posts": { fn: createPost, limiter: "POST_LIMITER", db: true },
   "POST like": { fn: like, limiter: "ACTION_LIMITER", db: true },
   "POST report": { fn: report, limiter: "ACTION_LIMITER", db: true },
@@ -95,7 +101,11 @@ async function handleApi(request, env, url) {
     if (parsed.error) return json(parsed, parsed.status || 400, cors);
     body = parsed.value;
   }
-  if (route.db) await ensureSchema(env.DB);
+  if (route.db || (route.ai && env.DB)) await ensureSchema(env.DB);
+  if (route.ai && env.DB) {
+    const quota = await spendQuota(env, request.headers.get("cf-connecting-ip") || "local");
+    if (quota) return json(quota.body, quota.status, { ...cors, "cache-control": "no-store" });
+  }
 
   const out = await route.fn(body, env, url, request);
   return json(out.body, out.status, { ...cors, "cache-control": "no-store" });
@@ -219,6 +229,7 @@ function ensureSchema(db) {
       db.prepare(`CREATE INDEX IF NOT EXISTS posts_feed ON posts (hidden, at DESC)`),
       db.prepare(`CREATE TABLE IF NOT EXISTS likes (post_id TEXT NOT NULL, device TEXT NOT NULL, PRIMARY KEY (post_id, device))`),
       db.prepare(`CREATE TABLE IF NOT EXISTS reports (post_id TEXT NOT NULL, device TEXT NOT NULL, PRIMARY KEY (post_id, device))`),
+      db.prepare(`CREATE TABLE IF NOT EXISTS ai_usage (day TEXT NOT NULL, who TEXT NOT NULL, n INTEGER NOT NULL, PRIMARY KEY (day, who))`),
     ]).catch(err => { schemaReady = null; throw err; });
   }
   return schemaReady;
@@ -319,6 +330,68 @@ function removePost(db, id) {
     db.prepare(`DELETE FROM likes WHERE post_id = ?1`).bind(id),
     db.prepare(`DELETE FROM reports WHERE post_id = ?1`).bind(id),
   ]);
+}
+
+/* ---------------- daily AI budget ---------------- */
+
+async function spendQuota(env, ip) {
+  const day = new Date().toISOString().slice(0, 10);
+  const who = "ip:" + (await sha256(ip)).slice(0, 24); // store a hash, never the raw IP
+  const bump = w => env.DB.prepare(
+    `INSERT INTO ai_usage (day, who, n) VALUES (?1, ?2, 1) ON CONFLICT (day, who) DO UPDATE SET n = n + 1 RETURNING n`
+  ).bind(day, w);
+  let mine = 0, site = 0;
+  try {
+    const [a, b] = await env.DB.batch([bump(who), bump("site")]);
+    mine = Number(a.results?.[0]?.n) || 0;
+    site = Number(b.results?.[0]?.n) || 0;
+    if (Math.random() < 0.01) {
+      const old = new Date(Date.now() - 3 * 864e5).toISOString().slice(0, 10);
+      await env.DB.prepare(`DELETE FROM ai_usage WHERE day < ?1`).bind(old).run();
+    }
+  } catch (err) {
+    console.error("Quota check failed:", err && err.message);
+    return null; // never block people because the counter hiccuped
+  }
+  if (site > (Number(env.AI_SITE_DAILY) || SITE_DAILY)) return fail("quota", "Claude is resting for today. The built-in stylist has you covered.", 429);
+  if (mine > (Number(env.AI_PER_VISITOR_DAILY) || PER_VISITOR_DAILY)) return fail("quota", "You’ve used today’s Claude picks. The built-in stylist has you covered until tomorrow.", 429);
+  return null;
+}
+
+/* ---------------- weather from the visitor's city (no location prompt) ---------------- */
+
+async function weather(_b, env, _url, request) {
+  const cf = request.cf || {};
+  const lat = Number(cf.latitude), lon = Number(cf.longitude);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return fail("no_location", "Couldn’t tell where you are.", 404);
+  const la = lat.toFixed(1), lo = lon.toFixed(1); // about 10 km, shared by nearby visitors
+  const cacheKey = new Request(`https://remix-weather.internal/${la},${lo}`);
+  const cache = caches.default;
+  let data = null;
+  const hit = await cache.match(cacheKey);
+  if (hit) data = await hit.json();
+  else {
+    try {
+      const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${la}&longitude=${lo}&current=temperature_2m,weather_code&temperature_unit=fahrenheit&timezone=auto`);
+      if (!r.ok) throw new Error("weather " + r.status);
+      const j = await r.json();
+      const temp = Math.round(Number(j.current && j.current.temperature_2m));
+      const code = Number(j.current && j.current.weather_code);
+      if (!Number.isFinite(temp)) throw new Error("no temp");
+      data = { temp: clamp(temp, -40, 130, 60), cond: weatherCond(code) };
+      await cache.put(cacheKey, new Response(JSON.stringify(data), { headers: { "cache-control": "max-age=1800" } }));
+    } catch (err) {
+      console.error("Weather lookup failed:", err && err.message);
+      return fail("weather_off", "Weather isn’t available right now.", 503);
+    }
+  }
+  return ok({ ...data, city: text(cf.city, 40) });
+}
+function weatherCond(c) {
+  if ([71, 73, 75, 77, 85, 86].includes(c)) return "snow";
+  if ((c >= 51 && c <= 67) || (c >= 80 && c <= 82) || c >= 95) return "rain";
+  if (c <= 1) return "clear";
+  return "cloudy";
 }
 
 /* ---------------- Claude API call ---------------- */
