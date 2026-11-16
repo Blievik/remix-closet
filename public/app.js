@@ -809,13 +809,14 @@ function itemSheet(it,preset){
       status(`Read the tag${r&&r.care?': '+String(r.care).slice(0,60):''}. Check the size before you save.`);
     }catch(err){if(signal.aborted)return;status('Couldn’t read that tag. Type the details below.')}};
   $s('#f-save').onclick=()=>{
+    const wasReady=S.profile.onboarded||rowsReady();
     const name=$s('#f-name').value.trim();if(!name){$s('#f-name').focus();toast('Give it a name so you can find it');return}
     const c=$s('#f-cat').value;
     Object.assign(draft,{name,cat:c,type:$s('#f-type').value,size:c==='shoe'?Number($s('#f-size').value):$s('#f-size').value,color:$s('#f-color').value,material:$s('#f-mat').value,brand:$s('#f-brand').value.trim(),price:Number($s('#f-price').value)||0});
     if(isNew){Object.assign(draft,{id:uid(),added:Date.now(),wears:0,lastWorn:null,example:false});S.items.unshift(draft)}
     else{draft.example=false;const i=S.items.findIndex(x=>x.id===draft.id);if(i>=0)S.items[i]=draft}
     const saved=cleanItem(draft);if(saved){const i=S.items.findIndex(x=>x.id===saved.id);S.items[i]=saved;saveItem(saved)}
-    const wasReady=S.profile.onboarded;closeSheet();
+    closeSheet();
     if(isNew)keepSafe();
     if(isNew&&!wasReady&&rowsReady()){S.profile.onboarded=1;S.profile.sizesSet=1;saveProfile();S.tab='style';S.idx={top:0,middle:0,shoe:0};const p=localPick();if(p)applyPick(p);else render();window.scrollTo({top:0});toast('Your closet is ready. Here’s your first outfit.');return}
     render();const f=fit(draft);toast(isNew?(f.k==='fits'?'Added to your closet':`Added. Heads up: ${f.t.toLowerCase()} for your size.`):'Saved');};
