@@ -10,6 +10,9 @@ binding = "ASSETS"
 run_worker_first = ["/api/*"]
 
 [vars]
+# Claude features (AI stylist, photo and tag reading). "false" = no API calls and no cost;
+# the app uses its built-in stylist instead. Set to "true" only if you want to pay for Claude.
+AI_ENABLED = "false"
 # Cheapest Claude model that can read photos. Switch to "claude-sonnet-5-5" if it misreads clothes.
 MODEL = "claude-haiku-5-5"
 # Only needed if the page is hosted somewhere other than this Worker. Comma separated, no trailing slash.
