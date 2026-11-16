@@ -2,14 +2,16 @@
 "use strict";
 /* ================= Constants ================= */
 const CATS=[
-  {key:'top',label:'Top',hint:'Shirts & layers'},
-  {key:'middle',label:'Middle',hint:'Pants & skirts'},
-  {key:'shoe',label:'Bottom',hint:'Shoes'}
+  {key:'top',label:'Top',hint:'Shirts, layers & coats'},
+  {key:'middle',label:'Middle',hint:'Pants, skirts & dresses'},
+  {key:'shoe',label:'Bottom',hint:'Shoes'},
+  {key:'acc',label:'Extras',hint:'Bags, hats & jewelry'}
 ];
 const TYPES={
-  top:[['tee','T-shirt'],['tank','Tank or cami'],['sweater','Sweater or long sleeve'],['jacket','Jacket or blazer']],
-  middle:[['pants','Pants or jeans'],['skirt','Skirt'],['shorts','Shorts']],
-  shoe:[['sneaker','Sneakers or flats'],['boot','Boots'],['heel','Heels']]
+  top:[['tee','T-shirt'],['tank','Tank or cami'],['sweater','Sweater or long sleeve'],['jacket','Jacket or blazer'],['coat','Coat']],
+  middle:[['pants','Pants or jeans'],['skirt','Skirt'],['shorts','Shorts'],['dress','Dress'],['jumpsuit','Jumpsuit or romper']],
+  shoe:[['sneaker','Sneakers or flats'],['boot','Boots'],['heel','Heels'],['sandal','Sandals']],
+  acc:[['bag','Bag'],['hat','Hat or beanie'],['scarf','Scarf'],['jewelry','Jewelry'],['belt','Belt']]
 };
 const ALLTYPES=Object.values(TYPES).flat().map(t=>t[0]);
 const LETTER=['XS','S','M','L','XL','XXL'];
@@ -21,7 +23,18 @@ const OCC=[['class','Class'],['work','Work'],['interview','Interview'],['date','
 const OCC_TARGET={class:1.3,work:2.4,interview:2.8,date:2.4,game:1,errands:.6};
 const CONDS=[['clear','Clear'],['cloudy','Cloudy'],['rain','Rain'],['snow','Snow']];
 
+const ONE=['dress','jumpsuit'],LAYERS=['jacket','coat','sweater'];
+const isOne=it=>!!it&&ONE.includes(it.type);
 const SH={
+ dress:'<path d="M38 8 L44 8 Q50 16 56 8 L62 8 L64 30 L58 40 L82 91 Q50 97 18 91 L42 40 L36 30 Z"/><path class="d" d="M42 40 L58 40"/>',
+ jumpsuit:'<path d="M36 8 L42 8 Q50 18 58 8 L64 8 L66 40 L74 92 L56 92 L50 54 L44 92 L26 92 L34 40 Z"/><path class="d" d="M34 40 L66 40"/>',
+ coat:'<path d="M30 10 L42 7 Q50 15 58 7 L70 10 L84 24 L92 80 L80 82 L72 44 L74 95 L26 95 L28 44 L20 82 L8 80 L16 24 Z"/><path class="d" d="M50 26 L50 95 M42 7 L50 26 L58 7 M28 60 L44 60 M56 60 L72 60"/>',
+ sandal:'<path d="M8 66 Q10 60 22 60 L84 60 Q93 61 93 68 L93 76 L8 76 Z"/><path class="d" d="M28 60 Q38 38 50 60 M58 60 Q66 44 76 60"/>',
+ bag:'<path d="M16 40 L84 40 L90 90 L10 90 Z"/><path class="d" d="M33 40 Q33 12 50 12 Q67 12 67 40"/>',
+ hat:'<path d="M20 70 Q20 26 50 26 Q80 26 80 70 Z"/><path d="M15 66 L85 66 L85 80 L15 80 Z"/><circle cx="50" cy="21" r="7"/>',
+ scarf:'<path d="M22 14 L78 14 L78 34 L62 34 L64 92 L46 92 L43 34 L22 34 Z"/><path class="d" d="M46 85 L64 85 M22 24 L78 24"/>',
+ jewelry:'<circle cx="24" cy="20" r="4"/><circle cx="28" cy="31" r="4"/><circle cx="33" cy="41" r="4"/><circle cx="39" cy="50" r="4"/><circle cx="61" cy="50" r="4"/><circle cx="67" cy="41" r="4"/><circle cx="72" cy="31" r="4"/><circle cx="76" cy="20" r="4"/><path d="M50 52 L60 66 L50 82 L40 66 Z"/>',
+ belt:'<path d="M6 42 L94 42 L94 58 L6 58 Z"/><path class="d" d="M56 37 L74 37 L74 63 L56 63 Z M65 50 L82 50"/>',
  tee:'<path d="M30 18 L42 13 Q50 22 58 13 L70 18 L88 33 L78 45 L70 39 L70 87 L30 87 L30 39 L22 45 L12 33 Z"/>',
  tank:'<path d="M36 12 L42 12 Q50 32 58 12 L64 12 Q64 30 72 38 L72 88 L28 88 L28 38 Q36 30 36 12 Z"/>',
  sweater:'<path d="M30 15 L42 11 Q50 19 58 11 L70 15 L84 29 L93 74 L81 77 L72 45 L72 88 L28 88 L28 45 L19 77 L7 74 L16 29 Z"/><path class="d" d="M28 82 L72 82"/>',
@@ -58,7 +71,7 @@ function svgFor(type,color){
 }
 function visual(it){return `<span class="vis">${isPhoto(it.photo)?`<img src="${esc(it.photo)}" alt="">`:svgFor(it.type,it.color)}</span>`}
 function wornLabel(it){const n=daysSince(it.lastWorn);if(n==null)return'Not worn yet';if(n<=0)return'Worn today';if(n===1)return'Worn yesterday';if(n<30)return`Worn ${n} days ago`;return`Not worn in ${n} days`}
-const sizeLabel=it=>it.cat==='shoe'?`US ${it.size}`:it.size;
+const sizeLabel=it=>it.cat==='shoe'?`US ${it.size}`:it.cat==='acc'?'One size':it.size;
 const money=n=>'$'+Math.round(n).toLocaleString();
 
 /* ================= Seed ================= */
@@ -97,15 +110,15 @@ const EXAMPLE_POSTS=[
 
 /* ================= Weather ================= */
 const WX={
- hot:{tank:['good','Light for the heat'],tee:['good','Light for the heat'],sweater:['bad','Too warm for today'],jacket:['bad','Too warm for today'],shorts:['good','Cool for the heat'],skirt:['good','Breezy for the heat'],pants:['ok','A bit warm'],sneaker:['good','Fine for today'],heel:['ok','Fine for today'],boot:['bad','Too heavy for the heat']},
- mild:{tank:['ok','Bring a layer'],tee:['good','Right for today'],sweater:['ok','Might run warm'],jacket:['good','Easy layer'],shorts:['ok','Fine if it stays warm'],skirt:['good','Right for today'],pants:['good','Right for today'],sneaker:['good','Right for today'],heel:['good','Right for today'],boot:['ok','Fine for today']},
- cool:{tank:['bad','Too light for today'],tee:['ok','Add a layer'],sweater:['good','Warm enough'],jacket:['good','Warm enough'],shorts:['bad','Too cold for shorts'],skirt:['ok','Add tights'],pants:['good','Warm enough'],sneaker:['good','Right for today'],heel:['ok','Cold on the feet'],boot:['good','Warm enough']},
- cold:{tank:['bad','Too light for the cold'],tee:['bad','Too light for the cold'],sweater:['good','Warm enough'],jacket:['good','Warm enough'],shorts:['bad','Too cold for shorts'],skirt:['ok','Add tights'],pants:['good','Warm enough'],sneaker:['ok','Wear thick socks'],heel:['bad','Too cold for heels'],boot:['good','Built for this']}
+ hot:{tank:['good','Light for the heat'],tee:['good','Light for the heat'],sweater:['bad','Too warm for today'],jacket:['bad','Too warm for today'],shorts:['good','Cool for the heat'],skirt:['good','Breezy for the heat'],pants:['ok','A bit warm'],sneaker:['good','Fine for today'],heel:['ok','Fine for today'],boot:['bad','Too heavy for the heat'],dress:['good','Breezy for the heat'],jumpsuit:['ok','Fine if it’s light'],coat:['bad','Way too warm'],sandal:['good','Made for the heat'],bag:['good','Goes with anything'],hat:['good','Shade for the sun'],scarf:['bad','Too warm for a scarf'],jewelry:['good','Goes with anything'],belt:['good','Goes with anything']},
+ mild:{tank:['ok','Bring a layer'],tee:['good','Right for today'],sweater:['ok','Might run warm'],jacket:['good','Easy layer'],shorts:['ok','Fine if it stays warm'],skirt:['good','Right for today'],pants:['good','Right for today'],sneaker:['good','Right for today'],heel:['good','Right for today'],boot:['ok','Fine for today'],dress:['good','Right for today'],jumpsuit:['good','Right for today'],coat:['ok','Might run warm'],sandal:['good','Right for today'],bag:['good','Goes with anything'],hat:['good','Fine for today'],scarf:['ok','Optional today'],jewelry:['good','Goes with anything'],belt:['good','Goes with anything']},
+ cool:{tank:['bad','Too light for today'],tee:['ok','Add a layer'],sweater:['good','Warm enough'],jacket:['good','Warm enough'],shorts:['bad','Too cold for shorts'],skirt:['ok','Add tights'],pants:['good','Warm enough'],sneaker:['good','Right for today'],heel:['ok','Cold on the feet'],boot:['good','Warm enough'],dress:['ok','Add tights'],jumpsuit:['good','Warm enough'],coat:['good','Warm enough'],sandal:['bad','Too cold for sandals'],bag:['good','Goes with anything'],hat:['good','Good for the chill'],scarf:['good','Good for the chill'],jewelry:['good','Goes with anything'],belt:['good','Goes with anything']},
+ cold:{tank:['bad','Too light for the cold'],tee:['bad','Too light for the cold'],sweater:['good','Warm enough'],jacket:['good','Warm enough'],shorts:['bad','Too cold for shorts'],skirt:['ok','Add tights'],pants:['good','Warm enough'],sneaker:['ok','Wear thick socks'],heel:['bad','Too cold for heels'],boot:['good','Built for this'],dress:['ok','Add tights and a coat'],jumpsuit:['ok','Add a warm layer'],coat:['good','Built for this'],sandal:['bad','Too cold for sandals'],bag:['good','Goes with anything'],hat:['good','Keeps you warm'],scarf:['good','Keeps you warm'],jewelry:['good','Goes with anything'],belt:['good','Goes with anything']}
 };
 const band=t=>t>=80?'hot':t>=60?'mild':t>=45?'cool':'cold';
 function wx(it){
   const c=S.weather.cond;let [k,t]=(WX[band(S.weather.temp)]||WX.mild)[it.type]||['ok',''];
-  if(c==='rain'){if(it.type==='heel')[k,t]=['bad','Slippery in the rain'];else if(it.type==='sneaker')[k,t]=['ok','Might get wet'];else if(it.type==='boot')[k,t]=['good','Good in the rain'];else if(it.material==='satin'||it.material==='velvet')[k,t]=['ok','Rain can spot '+it.material]}
+  if(c==='rain'){if(it.type==='heel')[k,t]=['bad','Slippery in the rain'];else if(it.type==='sneaker')[k,t]=['ok','Might get wet'];else if(it.type==='boot')[k,t]=['good','Good in the rain'];else if(it.type==='sandal')[k,t]=['ok','Feet will get wet'];else if(it.material==='satin'||it.material==='velvet')[k,t]=['ok','Rain can spot '+it.material]}
   if(c==='snow'){if(it.type==='boot')[k,t]=['good','Good in the snow'];else if(it.cat==='shoe')[k,t]=['bad','Not for snow'];else if(it.type==='shorts')[k,t]=['bad','Too cold for shorts']}
   return{k,t};
 }
@@ -119,7 +132,7 @@ const TRENDS=[
  {id:'purple',for:'women',name:'Royal purple',note:'Plum to violet in knits, shoes, and bags.',test:o=>has(o,['Purple','Lavender'])},
  {id:'olive',for:'women',name:'Olive and moss',note:'Earthy greens like olive, moss, and khaki.',test:o=>has(o,['Olive','Green','Sage'])},
  {id:'red',for:'women',name:'Bright red pop',note:'One saturated red piece to lift a neutral look.',test:o=>has(o,['Red'])},
- {id:'tux',for:'women',name:'Black and white',note:'Tuxedo style contrast with nothing else in the mix.',test:o=>o.length===3&&o.every(i=>['Black','White','Gray'].includes(fam(i)))&&has(o,['Black'])&&has(o,['White'])},
+ {id:'tux',for:'women',name:'Black and white',note:'Tuxedo style contrast with nothing else in the mix.',test:o=>o.length>=2&&o.every(i=>['Black','White','Gray'].includes(fam(i)))&&has(o,['Black'])&&has(o,['White'])},
  {id:'tailor',for:'women',name:'Lean tailoring',note:'A structured jacket with slim trousers.',test:o=>o.some(i=>i.type==='jacket'&&i.material!=='leather')&&o.some(i=>i.type==='pants'&&i.material!=='denim')},
  {id:'leather',for:'women',name:'Leather jackets',note:'Bombers in olive, chocolate, and espresso.',test:o=>o.some(i=>i.type==='jacket'&&i.material==='leather')},
  {id:'satin',for:'women',name:'Satin',note:'Fluid satin skirts, pants, and camis.',test:o=>o.some(i=>i.material==='satin')},
@@ -159,7 +172,7 @@ function harmony(o){
 const KEY='remix-closet-v3';
 let S={items:seed(),profile:{top:'M',middle:'M',shoe:8,outfitValue:60,style:'women',name:''},looks:[],log:[],localPosts:[],liked:{},myTokens:{},
   weather:{temp:48,cond:'cloudy'},occasion:'class',note:'',wxOnly:false,fitOnly:false,wxOpen:false,
-  idx:{top:0,middle:0,shoe:0},locked:{},tab:'style',closetFilter:'all',q:'',sort:'newest',
+  idx:{top:0,middle:0,shoe:0,acc:0},locked:{},tab:'style',closetFilter:'all',q:'',sort:'newest',
   suggestion:null,thinking:false,recent:[],posts:[],likes:{},names:{}};
 function loadLocal(){
   try{
@@ -201,7 +214,7 @@ function saveProfile(){persistLocal()}
 function cleanItem(v){
   if(!v||!CATS.some(c=>c.key===v.cat)||!ALLTYPES.includes(v.type))return null;
   const o={id:String(v.id||'').slice(0,20),cat:v.cat,type:v.type,name:String(v.name||'Piece').slice(0,40),color:isHex(v.color)?v.color:'#999999',
-    size:v.cat==='shoe'?(Number(v.size)||8):(LETTER.includes(v.size)?v.size:'M'),price:Math.max(0,Number(v.price)||0),wears:Math.max(0,Math.round(Number(v.wears)||0)),
+    size:v.cat==='shoe'?(Number(v.size)||8):v.cat==='acc'?'One size':(LETTER.includes(v.size)?v.size:'M'),price:Math.max(0,Number(v.price)||0),wears:Math.max(0,Math.round(Number(v.wears)||0)),
     lastWorn:typeof v.lastWorn==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v.lastWorn)?v.lastWorn:null,material:MATKEYS.includes(v.material)?v.material:'',
     brand:String(v.brand||'').slice(0,30),care:String(v.care||'').slice(0,80),added:Number(v.added)||0,example:!!v.example};
   if(isPhoto(v.photo))o.photo=v.photo;
@@ -227,7 +240,7 @@ async function api(path,body){
 }
 function cleanPost(p){
   if(!p||typeof p.id!=='string'||!/^[a-z0-9]{8,32}$/.test(p.id))return null;
-  const pieces=(Array.isArray(p.pieces)?p.pieces:[]).slice(0,3).map(pc=>({type:ALLTYPES.includes(pc&&pc.type)?pc.type:'tee',color:isHex(pc&&pc.color)?pc.color:'#999999',name:String(pc&&pc.name||'').slice(0,40)}));
+  const pieces=(Array.isArray(p.pieces)?p.pieces:[]).slice(0,5).map(pc=>({type:ALLTYPES.includes(pc&&pc.type)?pc.type:'tee',color:isHex(pc&&pc.color)?pc.color:'#999999',name:String(pc&&pc.name||'').slice(0,40)}));
   if(!pieces.length)return null;
   return{id:p.id,name:String(p.name||'').slice(0,24),at:Number(p.at)||0,caption:String(p.caption||'').slice(0,160),title:String(p.title||'').slice(0,40),pieces,
     likes:Math.max(0,Math.round(Number(p.likes)||0)),liked:!!p.liked};
@@ -242,21 +255,30 @@ async function loadFeed(force){
 
 /* ================= Derived ================= */
 function fit(it){
+  if(it.cat==='acc')return{k:'fits',t:'Fits'};
   if(it.cat==='shoe'){const d=Number(it.size)-Number(S.profile.shoe);if(d===0)return{k:'fits',t:'Fits'};if(Math.abs(d)<=.5)return{k:'check',t:'Check fit'};return{k:'no',t:d<0?'Too small':'Too big'}}
   const d=LETTER.indexOf(it.size)-LETTER.indexOf(S.profile[it.cat]);
   if(d===0)return{k:'fits',t:'Fits'};if(Math.abs(d)===1)return{k:'check',t:'Check fit'};return{k:'no',t:d<0?'Too small':'Too big'};
 }
-function pool(cat){let l=S.items.filter(i=>i.cat===cat);if(S.fitOnly)l=l.filter(i=>fit(i).k!=='no');if(S.wxOnly)l=l.filter(i=>wx(i).k!=='bad');return l}
-function current(cat){const l=pool(cat);if(!l.length)return null;S.idx[cat]=((S.idx[cat]%l.length)+l.length)%l.length;return l[S.idx[cat]]}
+/* A dress or jumpsuit fills the top and middle rows; the top row then becomes an optional layer. Extras are always optional. */
+function basePool(cat){let l=S.items.filter(i=>i.cat===cat);if(S.fitOnly)l=l.filter(i=>fit(i).k!=='no');if(S.wxOnly)l=l.filter(i=>wx(i).k!=='bad');return l}
+const onePieceOn=()=>isOne(current('middle'));
+function pool(cat){const l=basePool(cat);return cat==='top'&&onePieceOn()?l.filter(i=>LAYERS.includes(i.type)):l}
+const optional=cat=>cat==='acc'||(cat==='top'&&onePieceOn());
+function slots(cat){const l=pool(cat);return optional(cat)?[null,...l]:l}
+function current(cat){const l=slots(cat);if(!l.length)return null;S.idx[cat]=(((Number(S.idx[cat])||0)%l.length)+l.length)%l.length;return l[S.idx[cat]]}
 const outfit=()=>CATS.map(c=>current(c.key)).filter(Boolean);
-const combos=()=>CATS.reduce((n,c)=>n*pool(c.key).length,1);
+const complete=o=>o.some(i=>i.cat==='middle')&&o.some(i=>i.cat==='shoe')&&(o.some(i=>i.cat==='top')||o.some(isOne));
+const byCat=(o,c)=>o.find(i=>i&&i.cat===c)||null;
+function combos(){const t=basePool('top'),m=basePool('middle'),sh=basePool('shoe').length,lay=t.filter(i=>LAYERS.includes(i.type)).length;
+  return(m.filter(i=>!isOne(i)).length*t.length+m.filter(isOne).length*(lay+1))*sh}
 const needsFit=()=>S.items.filter(i=>fit(i).k==='no');
 const cpw=it=>it.price?(it.wears?`$${(it.price/it.wears).toFixed(2)}/wear`:'Not worn yet'):'';
-function formal(it){return({tee:1,tank:.8,sweater:2,jacket:it.material==='leather'?2:3,pants:it.material==='denim'?1.2:2.8,skirt:it.material==='satin'?2.6:2,shorts:.3,sneaker:it.material==='cotton'?.8:1.2,boot:2.2,heel:3})[it.type]||1.5}
+function formal(it){return({dress:['satin','velvet'].includes(it.material)?2.8:2.3,jumpsuit:2.2,coat:2.6,sandal:.8,tee:1,tank:.8,sweater:2,jacket:it.material==='leather'?2:3,pants:it.material==='denim'?1.2:2.8,skirt:it.material==='satin'?2.6:2,shorts:.3,sneaker:it.material==='cotton'?.8:1.2,boot:2.2,heel:3})[it.type]||1.5}
 function lookScore(o){
-  if(o.length<3)return null;
-  const w=o.reduce((s,i)=>s+({good:10,ok:6,bad:0})[wx(i).k],0);
-  const f=o.reduce((s,i)=>s+({fits:20/3,check:4,no:0})[fit(i).k],0);
+  if(!complete(o))return null;
+  const w=o.reduce((s,i)=>s+({good:1,ok:.6,bad:0})[wx(i).k],0)/o.length*30;
+  const f=o.reduce((s,i)=>s+({fits:1,check:.6,no:0})[fit(i).k],0)/o.length*20;
   const h=harmony(o),c=({good:25,ok:15,bad:5})[h.k];
   const hits=activeTrends().filter(t=>t.test(o)).length,t=hits>=2?25:hits===1?17:5;
   return{total:Math.round(w+f+c+t),hits,h};
@@ -264,38 +286,59 @@ function lookScore(o){
 
 /* Built-in stylist: scores every combination in the closet */
 function localPick(){
-  const rows=CATS.map(c=>{if(S.locked[c.key]){const it=current(c.key);return it?[it]:[]}let l=pool(c.key).filter(i=>fit(i).k!=='no');if(!l.length)l=pool(c.key);return l});
-  if(rows.some(r=>!r.length))return null;
+  const list=cat=>{let l=basePool(cat).filter(i=>fit(i).k!=='no');if(!l.length)l=basePool(cat);const w=l.filter(i=>wx(i).k!=='bad');return w.length?w:l};
+  const lockOr=(cat,l)=>S.locked[cat]?(current(cat)?[current(cat)]:[]):l;
+  let mids=lockOr('middle',list('middle')),shoes=lockOr('shoe',list('shoe')),tops=list('top');
+  if(!mids.length||!shoes.length)return null;
+  const trim=r=>{if(r.length>18){r.sort((a,b)=>(wx(a).k==='bad')-(wx(b).k==='bad')||(daysSince(b.lastWorn)??99)-(daysSince(a.lastWorn)??99));r.length=18}};
+  if(tops.length*mids.length*shoes.length>6000){tops=tops.slice();mids=mids.slice();shoes=shoes.slice();[tops,mids,shoes].forEach(trim)}
+  const tl=!!S.locked.top,tCur=tl?current('top'):null;
   const target=OCC_TARGET[S.occasion]||1.5;const scored=[];
-  for(const a of rows[0])for(const b of rows[1])for(const c of rows[2]){
-    const o=[a,b,c],sc=lookScore(o);
-    const form=o.reduce((s,i)=>s+formal(i),0)/3;
-    const fresh=o.reduce((s,i)=>s+Math.min(30,daysSince(i.lastWorn)??30),0)/9;
-    scored.push({o,s:sc.total-Math.abs(form-target)*12+fresh,key:o.map(i=>i.id).join()});
+  for(const b of mids){
+    let ts;
+    if(isOne(b))ts=tl?(tCur?(LAYERS.includes(tCur.type)?[tCur]:null):[null]):[null,...tops.filter(i=>LAYERS.includes(i.type))];
+    else ts=tl?(tCur?[tCur]:null):tops;
+    if(!ts||!ts.length)continue;
+    for(const a of ts)for(const c of shoes){
+      const o=[a,b,c].filter(Boolean),sc=lookScore(o);if(!sc)continue;
+      const form=o.reduce((s,i)=>s+formal(i),0)/o.length;
+      const fresh=o.reduce((s,i)=>s+Math.min(30,daysSince(i.lastWorn)??30),0)/(o.length*3);
+      scored.push({o,s:sc.total-Math.abs(form-target)*12+fresh,key:o.map(i=>i.id).join()});
+    }
   }
+  if(!scored.length)return null;
   scored.sort((x,y)=>y.s-x.s);
-  const fresh=scored.filter(x=>!S.recent.includes(x.key));
+  const fresh=scored.filter(x=>!S.recent.some(r=>r.startsWith(x.key)));
   const top=(fresh.length?fresh:scored).slice(0,3);
   const pick=top[Math.floor(Math.random()*top.length)];
-  const o=pick.o,sc=lookScore(o),occ=(OCC.find(x=>x[0]===S.occasion)||OCC[0])[1];
+  const o=pick.o.slice();
+  if(S.locked.acc){const a=current('acc');if(a)o.push(a)}
+  else{const accs=basePool('acc').filter(i=>wx(i).k!=='bad');
+    if(accs.length&&Math.random()<.8){const base=lookScore(o).total;
+      const opts=accs.map(a=>({a,s:lookScore([...o,a]).total+Math.min(30,daysSince(a.lastWorn)??30)/10})).filter(x=>x.s>=base&&harmony([...o,x.a]).k!=='bad').sort((x,y)=>y.s-x.s).slice(0,3);
+      if(opts.length)o.push(opts[Math.floor(Math.random()*opts.length)].a)}}
+  const sc=lookScore(o),occ=(OCC.find(x=>x[0]===S.occasion)||OCC[0])[1];
   const trend=activeTrends().find(t=>t.test(o));
   const forgotten=o.find(i=>(daysSince(i.lastWorn)??99)>=30);
   let why=`${o.every(i=>wx(i).k!=='bad')?`Works for ${S.weather.temp}°F`:'Closest fit for today’s weather'} and ${sc.h.t.toLowerCase()}.`;
   if(trend)why+=` It also hits ${trend.name.toLowerCase()}.`;
   else if(forgotten)why+=` Your ${forgotten.name.toLowerCase()} is due for a wear.`;
-  const [top1,mid,sh]=o;let tip='Front tuck the top to give the outfit some shape.';
-  if(mid.type==='skirt'&&band(S.weather.temp)!=='hot'&&band(S.weather.temp)!=='mild')tip='Add sheer black tights to keep the skirt warm enough.';
-  else if(top1.type==='jacket')tip='Push the jacket sleeves up for an easier look.';
+  const top1=byCat(o,'top'),mid=byCat(o,'middle'),sh=byCat(o,'shoe'),ac=byCat(o,'acc');const cold=['cool','cold'].includes(band(S.weather.temp));
+  let tip=top1?'Front tuck the top to give the outfit some shape.':'Let the dress do the work and keep the rest simple.';
+  if(isOne(mid)){if(cold)tip=top1?`Wear the ${top1.name.toLowerCase()} open over the ${mid.type} and add tights.`:'Add sheer black tights to keep it warm enough.';else if(ac&&ac.type==='belt')tip='Belt it at the waist to give the shape some definition.';else if(top1)tip='Drape the layer over your shoulders for an easy finish.'}
+  else if(mid.type==='skirt'&&cold)tip='Add sheer black tights to keep the skirt warm enough.';
+  else if(top1&&(top1.type==='jacket'||top1.type==='coat'))tip=`Push the ${top1.type} sleeves up for an easier look.`;
   else if(mid.material==='denim'&&sh.type!=='sneaker')tip='Cuff the jeans once so the shoes show.';
-  else if(top1.type==='sweater')tip='Let a little of the sweater hem hang over the waistband.';
+  else if(top1&&top1.type==='sweater')tip='Let a little of the sweater hem hang over the waistband.';
   return{ids:o.map(i=>i.id),title:`${occ} remix`,why,tip,by:'built-in'};
 }
 function applyPick(p){
   if(!p){toast('Add a piece to every row first');return}
   const items=p.ids.map(id=>S.items.find(i=>i.id===id));
   if(items.some(it=>!it)){toast('Add a piece to every row first');return}
-  if(items.some(it=>pool(it.cat).indexOf(it)<0)){S.fitOnly=false;S.wxOnly=false}
-  items.forEach(it=>{S.idx[it.cat]=pool(it.cat).indexOf(it)});
+  const setAll=()=>{let ok=true;['middle','top','shoe','acc'].forEach(c=>{const it=byCat(items,c),l=slots(c);
+    if(it){const j=l.indexOf(it);if(j<0)ok=false;else S.idx[c]=j}else if(optional(c))S.idx[c]=0});return ok};
+  if(!setAll()){S.fitOnly=false;S.wxOnly=false;setAll()}
   S.recent=[p.ids.join(),...S.recent].slice(0,6);
   S.suggestion=p;render({pop:true});
 }
@@ -305,8 +348,8 @@ function occLabel(){return(OCC.find(x=>x[0]===S.occasion)||OCC[0])[1]}
 const AI_OFF_MSG={quota:'You’ve used today’s Claude picks, so the built-in stylist picked this one.',offline:'You’re offline, so the built-in stylist picked this one.',rate_limited:'The stylist is busy. The built-in stylist picked this one.'};
 async function styleMe(again){
   if(S.thinking)return;
-  if(CATS.some(c=>!pool(c.key).length)){toast('Add a piece to every row first');return}
-  if(!CAP.ai||!navigator.onLine||CAP.quotaDay===today()){applyPick(localPick());return}
+  const fb0=localPick();if(!fb0){toast('Add a top, a middle, and shoes first');return}
+  if(!CAP.ai||!navigator.onLine||CAP.quotaDay===today()){applyPick(fb0);return}
   S.thinking=true;render();
   try{
     const locked=CATS.filter(c=>S.locked[c.key]).map(c=>current(c.key)).filter(Boolean).map(i=>i.id);
@@ -315,8 +358,15 @@ async function styleMe(again){
       trends:activeTrends().map(t=>t.name),locked,recent:S.recent.slice(0,4),closet});
     S.thinking=false;
     const fallback=localPick();if(!fallback){render();return}
-    const final=['top','middle','shoe'].map((k,n)=>{if(S.locked[k]){const c=current(k);if(c)return c.id}
-      const id=String(r&&r[k]||'');return S.items.some(i=>i.id===id&&i.cat===k)?id:fallback.ids[n]});
+    const fb=fallback.ids.map(id=>S.items.find(i=>i.id===id)).filter(Boolean);
+    const get=(k,ok)=>{const id=String(r&&r[k]||'');const it=S.items.find(i=>i.id===id&&i.cat===k);return it&&(!ok||ok(it))?it:null};
+    const lk=k=>S.locked[k]?current(k):undefined;
+    const mid=lk('middle')||get('middle')||byCat(fb,'middle');
+    let top=isOne(mid)?(S.locked.top?current('top'):get('top',i=>LAYERS.includes(i.type))):(lk('top')||get('top')||byCat(fb,'top'));
+    if(top&&isOne(mid)&&!LAYERS.includes(top.type))top=null;
+    const shoe=lk('shoe')||get('shoe')||byCat(fb,'shoe'),acc=S.locked.acc?current('acc'):get('acc');
+    let final=[top,mid,shoe,acc].filter(Boolean).map(i=>i.id);
+    if(!complete([top,mid,shoe].filter(Boolean)))final=fallback.ids;
     applyPick({ids:final,title:String(r&&r.title||fallback.title).slice(0,40),why:String(r&&r.why||fallback.why).slice(0,240),tip:String(r&&r.tip||fallback.tip).slice(0,160),by:'claude'});
   }catch(e){
     S.thinking=false;
@@ -356,16 +406,49 @@ const IC={
 };
 const examplesOnly=()=>S.items.length>0&&S.items.every(i=>i.example);
 
+const STARTER=[
+  {cat:'top',type:'tee',name:'White tee',color:'#F2F1EC',mat:'cotton'},
+  {cat:'top',type:'tee',name:'Black tee',color:'#232126',mat:'cotton'},
+  {cat:'top',type:'tank',name:'Black tank',color:'#26232A',mat:'cotton'},
+  {cat:'top',type:'sweater',name:'Gray sweater',color:'#8E8C92',mat:'knit'},
+  {cat:'top',type:'sweater',name:'Cream cardigan',color:'#E8DFC9',mat:'knit'},
+  {cat:'top',type:'jacket',name:'Denim jacket',color:'#5A7AA6',mat:'denim'},
+  {cat:'top',type:'jacket',name:'Black blazer',color:'#2A2A2E',mat:'wool'},
+  {cat:'top',type:'coat',name:'Camel coat',color:'#B88A5A',mat:'wool'},
+  {cat:'middle',type:'pants',name:'Blue jeans',color:'#4B6C9B',mat:'denim'},
+  {cat:'middle',type:'pants',name:'Black jeans',color:'#2B2B30',mat:'denim'},
+  {cat:'middle',type:'pants',name:'Khaki pants',color:'#C2AE88',mat:'cotton'},
+  {cat:'middle',type:'skirt',name:'Black skirt',color:'#25232A',mat:'cotton'},
+  {cat:'middle',type:'shorts',name:'Denim shorts',color:'#86A5CB',mat:'denim'},
+  {cat:'middle',type:'dress',name:'Black dress',color:'#211F24',mat:'cotton'},
+  {cat:'middle',type:'dress',name:'Floral sundress',color:'#D98BA0',mat:'cotton'},
+  {cat:'shoe',type:'sneaker',name:'White sneakers',color:'#F1F1F1',mat:'leather'},
+  {cat:'shoe',type:'sneaker',name:'Black flats',color:'#1F1D22',mat:'leather'},
+  {cat:'shoe',type:'boot',name:'Brown boots',color:'#5B3B2A',mat:'leather'},
+  {cat:'shoe',type:'boot',name:'Black boots',color:'#222024',mat:'leather'},
+  {cat:'shoe',type:'heel',name:'Black heels',color:'#1F1D22',mat:'leather'},
+  {cat:'shoe',type:'sandal',name:'Tan sandals',color:'#C49A6C',mat:'leather'},
+  {cat:'acc',type:'bag',name:'Black tote',color:'#26232A',mat:'leather'},
+  {cat:'acc',type:'scarf',name:'Gray scarf',color:'#9A989E',mat:'knit'},
+  {cat:'acc',type:'jewelry',name:'Gold necklace',color:'#C9A43A',mat:''},
+  {cat:'acc',type:'hat',name:'Black beanie',color:'#2A2A2E',mat:'knit'}
+];
+const starterPick=new Set();
+
 /* ================= Style tab ================= */
-const rowsReady=()=>CATS.every(c=>S.items.some(i=>i.cat===c.key));
+const rowsReady=()=>S.items.some(i=>i.cat==='middle')&&S.items.some(i=>i.cat==='shoe')&&(S.items.some(i=>i.cat==='top')||S.items.some(isOne));
 function onboarding(){
   const P=S.profile,opt=(arr,v,f)=>arr.map(x=>`<option value="${x}" ${String(x)===String(v)?'selected':''}>${f?f(x):x}</option>`).join('');
-  const steps=CATS.map(c=>({c,n:S.items.filter(i=>i.cat===c.key).length}));
+  const steps=CATS.filter(c=>c.key!=='acc').map(c=>({c,n:S.items.filter(i=>i.cat===c.key).length}));
   const done=steps.filter(x=>x.n).length+(P.sizesSet?1:0);
   let h=`<section class="onboard" aria-label="Get started"><div class="label">Welcome to remix</div>
     <h3>Set up your closet in about 2 minutes</h3>
     <p class="note">Add one top, one middle, and one pair of shoes and Remix starts building outfits. Add more anytime and the combos multiply.</p>
     <div class="ob-bar" role="progressbar" aria-valuemin="0" aria-valuemax="4" aria-valuenow="${done}"><i style="width:${done*25}%"></i></div>
+    <div class="quick"><div class="label">Fastest: tap the basics you own</div>
+    ${CATS.map(c=>`<div class="starter" role="group" aria-label="${c.hint}">${STARTER.map((s,i)=>s.cat!==c.key?'':`<button class="st-item" data-starter="${i}" aria-pressed="${starterPick.has(i)}">${svgFor(s.type,s.color)}<span>${esc(s.name)}</span></button>`).join('')}</div>`).join('')}
+    <button class="primary-btn" data-starter-add ${starterPick.size?'':'disabled'}>${starterPick.size?`Add ${starterPick.size} ${starterPick.size===1?'piece':'pieces'}`:'Pick what you own'}</button>
+    <p class="note">You can fix colors and add photos later. Or go step by step below.</p></div>
     <ol class="ob-steps">
     <li class="${P.sizesSet?'done':''}"><div class="ob-head"><span class="ob-n">1</span><b>Your sizes</b>${P.sizesSet?'<span class="ob-ok">Done</span>':''}</div>
       ${P.sizesSet?'':`<div class="sizes"><div class="field"><label for="ob-top">Top</label><select id="ob-top" data-size="top">${opt(LETTER,P.top)}</select></div>
@@ -373,7 +456,7 @@ function onboarding(){
       <div class="field"><label for="ob-shoe">Shoes (US)</label><select id="ob-shoe" data-size="shoe">${opt(SHOES,P.shoe)}</select></div></div>
       <div class="seg" role="group" aria-label="Show trends for">${STYLES.map(([k,t])=>`<button class="seg-btn" data-style="${k}" aria-pressed="${P.style===k}">${t}</button>`).join('')}</div>
       <button class="secondary-btn" data-sizes-ok>These are my sizes</button>`}</li>`;
-  steps.forEach((x,n)=>{h+=`<li class="${x.n?'done':''}"><div class="ob-head"><span class="ob-n">${n+2}</span><b>Add ${x.c.key==='shoe'?'a pair of shoes':x.c.key==='top'?'a top':'pants, a skirt or shorts'}</b>
+  steps.forEach((x,n)=>{h+=`<li class="${x.n?'done':''}"><div class="ob-head"><span class="ob-n">${n+2}</span><b>Add ${x.c.key==='shoe'?'a pair of shoes':x.c.key==='top'?'a top (or skip it if you add a dress)':'pants, a skirt, shorts or a dress'}</b>
       ${x.n?`<span class="ob-ok">${x.n} added</span>`:`<button class="btn-sm" data-add-cat="${x.c.key}">Add</button>`}</div></li>`});
   h+=`</ol><p class="note">${CAP.ai?'Snap a photo and Claude fills in the details for you.':'Snap a photo and Remix picks up the color for you.'} Your closet stays on this phone.</p></section>`;
   return h;
@@ -415,13 +498,14 @@ function renderStyle(dir){
   h+=`<div class="toolbar"><h2>Mix &amp; match</h2><div class="filters">
     <button class="fchip" data-flt="fit" aria-pressed="${S.fitOnly}">Fits me</button><button class="fchip" data-flt="wx" aria-pressed="${S.wxOnly}">Weather OK</button></div></div><div class="rows">`;
   CATS.forEach(c=>{
-    const l=pool(c.key),it=current(c.key),locked=!!S.locked[c.key];
+    const l=slots(c.key),it=current(c.key),locked=!!S.locked[c.key],lab=c.key==='top'&&onePieceOn()?'Layer':c.label;
     const an=dir&&dir.pop?'anim-pop':dir&&dir.cat===c.key?(dir.d>0?'anim-r':'anim-l'):'';
-    h+=`<div><div class="row-head"><span class="label">${c.label} · ${l.length?`${S.idx[c.key]+1} of ${l.length}`:'empty'}</span><button class="lock" data-lock="${c.key}" aria-pressed="${locked}">${locked?IC.lock+'Locked':'Lock'}</button></div>
-    <div class="row"><button class="arrow" data-step="${c.key}" data-d="-1" aria-label="Previous ${c.label.toLowerCase()}" ${l.length<2?'disabled':''}>${IC.l}</button>`;
+    h+=`<div><div class="row-head"><span class="label">${lab}${optional(c.key)?' (optional)':''} · ${l.length?`${S.idx[c.key]+1} of ${l.length}`:'empty'}</span><button class="lock" data-lock="${c.key}" aria-pressed="${locked}">${locked?IC.lock+'Locked':'Lock'}</button></div>
+    <div class="row"><button class="arrow" data-step="${c.key}" data-d="-1" aria-label="Previous ${lab.toLowerCase()}" ${l.length<2?'disabled':''}>${IC.l}</button>`;
     if(it){const f=fit(it),w=wx(it);h+=`<button class="piece ${locked?'locked':''} ${an}" data-swipe="${c.key}" data-detail="${it.id}" aria-label="${esc(it.name)} details">${visual(it)}<span class="info"><span class="name">${esc(it.name)}</span><span class="tags"><span class="sz">${esc(sizeLabel(it))}</span><span class="badge ${f.k}">${f.t}</span></span><span class="wxl ${w.k}">${w.t}</span><span class="worn">${wornLabel(it)}</span></span></button>`}
+    else if(optional(c.key))h+=`<div class="piece empty-piece ${an}" data-swipe="${c.key}">${c.key==='acc'?'No extras':`No layer over the ${esc(current('middle').type)}`}${l.length>1?'. Swipe or tap the arrows to add one.':c.key==='acc'?'. Add bags, hats, or jewelry in Closet.':'. Add a jacket, coat, or sweater in Closet.'}</div>`;
     else h+=`<div class="piece empty-piece">No ${c.hint.toLowerCase()} ${S.fitOnly||S.wxOnly?'match your filters':'yet'}. ${S.fitOnly||S.wxOnly?'Try turning a filter off.':'Add some in Closet.'}</div>`;
-    h+=`<button class="arrow" data-step="${c.key}" data-d="1" aria-label="Next ${c.label.toLowerCase()}" ${l.length<2?'disabled':''}>${IC.r}</button></div></div>`;
+    h+=`<button class="arrow" data-step="${c.key}" data-d="1" aria-label="Next ${lab.toLowerCase()}" ${l.length<2?'disabled':''}>${IC.r}</button></div></div>`;
   });
   h+='</div>'+lookCheck();
   const loggedToday=S.log.find(e=>e.d===today());
@@ -456,17 +540,17 @@ function lookCheck(){
   return h+'</section>';
 }
 function trendTip(o){
-  if(o.length<3)return null;
+  if(!complete(o))return null;
   for(const tr of activeTrends()){if(tr.test(o))continue;
-    for(const c of CATS){if(S.locked[c.key])continue;const l=pool(c.key);
-      for(let j=0;j<l.length;j++){const it=l[j];if(o.includes(it)||fit(it).k==='no')continue;
-        const sw=o.map(x=>x.cat===c.key?it:x);if(tr.test(sw)&&wx(it).k!=='bad'&&harmony(sw).k!=='bad')return{tr,it,cat:c.key,j}}}}
+    for(const c of CATS){if(S.locked[c.key]||c.key==='middle')continue;const l=slots(c.key);
+      for(let j=0;j<l.length;j++){const it=l[j];if(!it||o.includes(it)||fit(it).k==='no')continue;
+        const sw=o.some(x=>x.cat===c.key)?o.map(x=>x.cat===c.key?it:x):[...o,it];if(tr.test(sw)&&wx(it).k!=='bad'&&harmony(sw).k!=='bad')return{tr,it,cat:c.key,j}}}}
   return null;
 }
 
 /* ================= Closet tab ================= */
 function renderCloset(){
-  const F=[['all','All'],['top','Top'],['middle','Middle'],['shoe','Bottom'],['fit','Needs fit check']];
+  const F=[['all','All'],['top','Top'],['middle','Middle'],['shoe','Bottom'],['acc','Extras'],['fit','Needs fit check']];
   let list=S.items.slice();
   if(S.closetFilter==='fit')list=list.filter(i=>fit(i).k!=='fits');
   else if(S.closetFilter!=='all')list=list.filter(i=>i.cat===S.closetFilter);
@@ -576,12 +660,12 @@ function go(tab){S.tab=tab;render();window.scrollTo({top:0});try{history.replace
 
 /* ================= Actions ================= */
 function step(cat,d){S.idx[cat]+=d;render({cat,d})}
-function shuffle(){CATS.forEach(c=>{if(S.locked[c.key])return;const n=pool(c.key).length;if(n>1){let r;do r=Math.floor(Math.random()*n);while(r===S.idx[c.key]);S.idx[c.key]=r}});S.suggestion=null;render({pop:true})}
-function saveLook(){const o=outfit();if(o.length<3){toast('Add a piece to every row first');return}
+function shuffle(){['middle','top','shoe','acc'].forEach(k=>{const c={key:k};if(S.locked[c.key])return;const n=slots(c.key).length;if(n>1){let r;do r=Math.floor(Math.random()*n);while(r===S.idx[c.key]);S.idx[c.key]=r}});S.suggestion=null;render({pop:true})}
+function saveLook(){const o=outfit();if(!complete(o)){toast('Add a top, a middle, and shoes first');return}
   const ids=o.map(i=>i.id),k=ids.join();if(S.looks.some(l=>l.ids.join()===k)){toast('Already in your saved looks');return}
   S.looks.unshift({id:uid(),ids,title:S.suggestion&&S.suggestion.ids&&S.suggestion.ids.join()===k?S.suggestion.title:'',at:Date.now()});saveProfile();toast('Saved to your looks')}
 function wear(){
-  const o=outfit();if(o.length<3){toast('Add a piece to every row first');return}
+  const o=outfit();if(!complete(o)){toast('Add a top, a middle, and shoes first');return}
   const d=today(),prev=S.log.find(e=>e.d===d);
   const before={log:JSON.parse(JSON.stringify(S.log)),items:o.concat(prev?prev.ids.map(id=>S.items.find(i=>i.id===id)).filter(Boolean):[]).map(i=>({id:i.id,wears:i.wears,lastWorn:i.lastWorn}))};
   if(prev)prev.ids.forEach(id=>{const it=S.items.find(i=>i.id===id);if(it){it.wears=Math.max(0,it.wears-1);saveItem(it)}});
@@ -592,8 +676,10 @@ function wear(){
 }
 function styleAround(id){
   const it=S.items.find(i=>i.id===id);if(!it)return;
-  if(pool(it.cat).indexOf(it)<0){S.fitOnly=false;S.wxOnly=false}
-  S.idx[it.cat]=pool(it.cat).indexOf(it);S.locked={};S.locked[it.cat]=true;
+  S.locked={};
+  if(it.cat==='top'&&!LAYERS.includes(it.type)&&onePieceOn()){const m=slots('middle').findIndex(x=>x&&!isOne(x));if(m>=0)S.idx.middle=m}
+  if(slots(it.cat).indexOf(it)<0){S.fitOnly=false;S.wxOnly=false}
+  const j=slots(it.cat).indexOf(it);if(j>=0){S.idx[it.cat]=j;S.locked[it.cat]=true}
   closeSheet();S.tab='style';S.suggestion=null;
   const p=localPick();if(p)applyPick(p);else render();window.scrollTo({top:0});
   toast(`Locked your ${it.name.toLowerCase()}. Tap Style me for more ideas.`);
@@ -619,7 +705,7 @@ function detailSheet(id){
   <button class="secondary-btn" data-edit="${it.id}">Edit details</button>`,it.name);
 }
 
-function shareSheet(){const o=outfit();if(o.length<3){toast('Add a piece to every row first');return}
+function shareSheet(){const o=outfit();if(!complete(o)){toast('Add a top, a middle, and shoes first');return}
   const shared=CAP.feed;
   openSheet(`<div class="sheet-head"><h3>Share this look</h3><button class="x" data-close aria-label="Close">×</button></div>
   <div class="stack">${o.map(i=>visual({type:i.type,color:i.color})).join('')}</div>
@@ -650,10 +736,10 @@ async function lookImage(o,title){
   x.fillStyle=ink;x.font='88px "Young Serif", Georgia, serif';x.textBaseline='alphabetic';
   x.fillText('re',90,190);const rw=x.measureText('re').width;x.fillStyle=rust;x.fillText('mix',90+rw,190);
   x.fillStyle=ink;x.font='bold 34px "Courier Prime", monospace';x.fillText((title||'Today’s remix').toUpperCase().slice(0,32),90,270);
-  x.font='30px "Courier Prime", monospace';x.fillStyle='#6F6352';x.fillText('3 pieces I already own. $0 spent.',90,320);
-  const top=380,th=420,gap=34;
-  for(let n=0;n<o.length;n++){const it=o[n],y=top+n*(th+gap),tilt=[-1.2,.8,-.6][n]*Math.PI/180;
-    x.save();x.translate(W/2,y+th/2);x.rotate(tilt);x.translate(-W/2,-(y+th/2));
+  x.font='30px "Courier Prime", monospace';x.fillStyle='#6F6352';x.fillText(`${o.length} pieces I already own. $0 spent.`,90,320);
+  const top=380,th=420,gap=34,TH=Math.min(th,Math.floor((1920-380-230)/o.length)-gap);
+  for(let n=0;n<o.length;n++){const it=o[n],y0=top+n*(TH+gap),y=y0,tilt=([-1.2,.8,-.6,.9][n]||0)*Math.PI/180;
+    x.save();x.translate(W/2,y0+TH/2);x.rotate(tilt);x.scale(TH/th,TH/th);x.translate(-W/2,-(y+th/2));
     x.fillStyle='rgba(43,36,28,.16)';x.fillRect(96,y+8,W-180,th);
     x.fillStyle=card;x.fillRect(90,y,W-180,th);x.strokeStyle=line;x.lineWidth=3;x.strokeRect(90,y,W-180,th);
     x.beginPath();x.arc(140,y+th/2,13,0,7);x.fillStyle=paper;x.fill();x.stroke();
@@ -662,14 +748,14 @@ async function lookImage(o,title){
     if(img){if(isPhoto(it.photo)){const s=Math.max(360/img.width,360/img.height),w=img.width*s,h=img.height*s;x.save();x.beginPath();x.rect(190,y+40,360,360);x.clip();x.drawImage(img,190+(360-w)/2,y+40+(360-h)/2,w,h);x.restore()}else x.drawImage(img,220,y+70,300,300)}
     x.fillStyle=ink;x.font='52px "Young Serif", Georgia, serif';
     const words=it.name.split(' ');let ln='',ly=y+130;for(const w of words){if(x.measureText(ln+w).width>330&&ln){x.fillText(ln.trim(),590,ly);ly+=62;ln=''}ln+=w+' '}x.fillText(ln.trim(),590,ly);
-    x.font='bold 30px "Courier Prime", monospace';x.fillStyle=rust;x.fillText(['TOP','MIDDLE','SHOES'][n],590,y+th-60);
+    x.font='bold 30px "Courier Prime", monospace';x.fillStyle=rust;x.fillText(({top:'TOP',middle:isOne(it)?'ONE PIECE':'MIDDLE',shoe:'SHOES',acc:'EXTRA'})[it.cat],590,y+th-60);
     x.restore()}
   x.fillStyle=ink;x.font='bold 32px "Courier Prime", monospace';x.textAlign='center';
   x.fillText('Restyled, not rebought.',W/2,H-130);x.font='30px "Courier Prime", monospace';x.fillStyle='#6F6352';x.fillText(location.host,W/2,H-80);
   return new Promise(r=>c.toBlob(r,'image/png'));
 }
 async function shareImage(){
-  const o=outfit();if(o.length<3)return;const btn=$('#share-img');if(btn){btn.disabled=true;btn.textContent='Making your picture…'}
+  const o=outfit();if(!complete(o))return;const btn=$('#share-img');if(btn){btn.disabled=true;btn.textContent='Making your picture…'}
   try{
     const title=(sheet.querySelector('#s-title')||{}).value||'';
     const blob=await lookImage(o,title.trim());if(!blob)throw 0;
@@ -771,7 +857,7 @@ function itemSheet(it,preset){
   sheetAbort=new AbortController();const signal=sheetAbort.signal;
   function fillCat(){const c=$s('#f-cat').value;
     $s('#f-type').innerHTML=TYPES[c].map(([k,t])=>`<option value="${k}" ${draft.type===k?'selected':''}>${t}</option>`).join('');
-    const sizes=c==='shoe'?SHOES:LETTER,def=c==='shoe'?S.profile.shoe:S.profile[c];
+    const sizes=c==='shoe'?SHOES:c==='acc'?['One size']:LETTER,def=c==='shoe'?S.profile.shoe:c==='acc'?'One size':S.profile[c];
     const cur=draft.cat===c&&draft.size!==''?draft.size:def;
     $s('#f-size').innerHTML=sizes.map(s=>`<option value="${s}" ${String(s)===String(cur)?'selected':''}>${c==='shoe'?'US '+s:s}</option>`).join('')}
   fillCat();$s('#f-cat').onchange=()=>{draft.type='';draft.cat=$s('#f-cat').value;draft.size='';fillCat()};
@@ -785,7 +871,7 @@ function itemSheet(it,preset){
       const big=await toBlob(await compress(file,1024));
       const r=await readItemPhoto(big);if(signal.aborted)return;
       if(r&&r.clothing===false){status('That doesn’t look like clothing. Fill in the details below.');return}
-      if(r&&['top','middle','shoe'].includes(r.row)){$s('#f-cat').value=r.row;draft.cat=r.row;draft.size=''}
+      if(r&&['top','middle','shoe','acc'].includes(r.row)){$s('#f-cat').value=r.row;draft.cat=r.row;draft.size=''}
       if(r&&ALLTYPES.includes(r.type)&&TYPES[draft.cat].some(t=>t[0]===r.type))draft.type=r.type;
       fillCat();
       if(r&&isHex(r.color)){$s('#f-color').value=r.color.toLowerCase();showName()}
@@ -860,9 +946,15 @@ function onClick(e){
   else if(t.id==='install-me')installApp();
   else if(t.id==='clear-ex'){if(!t.classList.contains('armed')){t.classList.add('armed');t.textContent='Tap to confirm';return}
     const ex=S.items.filter(i=>i.example);S.items=S.items.filter(i=>!i.example);ex.forEach(i=>dropItem(i.id));S.looks=[];S.log=[];saveProfile();render();toast('Examples cleared. Add your first piece.')}
+  else if(D.starter){const i=Number(D.starter);starterPick.has(i)?starterPick.delete(i):starterPick.add(i);render()}
+  else if('starterAdd' in D){const now=Date.now();let k=0;
+    [...starterPick].forEach(i=>{const s=STARTER[i];const it=cleanItem({id:uid(),cat:s.cat,type:s.type,name:s.name,color:s.color,size:s.cat==='shoe'?S.profile.shoe:S.profile[s.cat],price:0,wears:0,lastWorn:null,material:s.mat,added:now-(k++)});if(it){S.items.push(it);saveItem(it)}});
+    S.items.sort((a,b)=>b.added-a.added);starterPick.clear();window.scrollTo({top:0});
+    if(rowsReady()){S.profile.onboarded=1;S.profile.sizesSet=1;saveProfile();S.idx={top:0,middle:0,shoe:0,acc:0};const p=localPick();if(p)applyPick(p);else render()}else render();
+    const n=combos();toast(n?`Added ${k} pieces. That’s ${n} outfits already.`:`Added ${k} pieces. Add one to every row to start mixing.`)}
   else if(t.id==='reset'){if(!t.classList.contains('armed')){t.classList.add('armed');t.textContent='Tap again to remove every piece';return}
     const old=S.items.slice();S.items=seed();old.forEach(i=>dropItem(i.id));S.items.forEach(saveItem);
-    Object.assign(S,{looks:[],log:[],profile:{top:'M',middle:'M',shoe:8,outfitValue:60,style:'women',name:S.profile.name||'',fresh:1},idx:{top:0,middle:0,shoe:0},locked:{},suggestion:null,recent:[],weather:{temp:48,cond:'cloudy'}});
+    Object.assign(S,{looks:[],log:[],profile:{top:'M',middle:'M',shoe:8,outfitValue:60,style:'women',name:S.profile.name||'',fresh:1},idx:{top:0,middle:0,shoe:0,acc:0},locked:{},suggestion:null,recent:[],weather:{temp:48,cond:'cloudy'}});
     saveProfile();render();toast('Closet cleared. Add your first piece.')}
 }
 view.addEventListener('click',onClick);sheet.addEventListener('click',e=>{const b=e.target.closest('[data-style-around],[data-edit],#share-img');if(b)onClick(e)});
@@ -885,7 +977,7 @@ view.addEventListener('input',e=>{
 view.addEventListener('keydown',e=>{if(e.target.id==='note'&&e.key==='Enter'){e.preventDefault();styleMe(false)}});
 let sx=null,scat=null,moved=false;
 view.addEventListener('touchstart',e=>{const p=e.target.closest('[data-swipe]');if(!p)return;sx=e.touches[0].clientX;scat=p.dataset.swipe;moved=false},{passive:true});
-view.addEventListener('touchend',e=>{if(sx===null)return;const dx=e.changedTouches[0].clientX-sx;if(Math.abs(dx)>40&&pool(scat).length>1){moved=true;step(scat,dx<0?1:-1)}sx=null},{passive:true});
+view.addEventListener('touchend',e=>{if(sx===null)return;const dx=e.changedTouches[0].clientX-sx;if(Math.abs(dx)>40&&slots(scat).length>1){moved=true;step(scat,dx<0?1:-1)}sx=null},{passive:true});
 view.addEventListener('click',e=>{if(moved&&e.target.closest('[data-swipe]')){e.stopImmediatePropagation();moved=false}},true);
 
 /* ================= Boot ================= */
