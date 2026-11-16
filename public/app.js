@@ -302,11 +302,11 @@ function applyPick(p){
 
 /* ================= Claude features ================= */
 function occLabel(){return(OCC.find(x=>x[0]===S.occasion)||OCC[0])[1]}
-const AI_OFF_MSG={offline:'You’re offline, so the built-in stylist picked this one.',rate_limited:'The stylist is busy. The built-in stylist picked this one.'};
+const AI_OFF_MSG={quota:'You’ve used today’s Claude picks, so the built-in stylist picked this one.',offline:'You’re offline, so the built-in stylist picked this one.',rate_limited:'The stylist is busy. The built-in stylist picked this one.'};
 async function styleMe(again){
   if(S.thinking)return;
   if(CATS.some(c=>!pool(c.key).length)){toast('Add a piece to every row first');return}
-  if(!CAP.ai||!navigator.onLine){applyPick(localPick());return}
+  if(!CAP.ai||!navigator.onLine||CAP.quotaDay===today()){applyPick(localPick());return}
   S.thinking=true;render();
   try{
     const locked=CATS.filter(c=>S.locked[c.key]).map(c=>current(c.key)).filter(Boolean).map(i=>i.id);
@@ -321,6 +321,7 @@ async function styleMe(again){
   }catch(e){
     S.thinking=false;
     if(e.code==='ai_off')CAP.ai=false;
+    if(e.code==='quota')CAP.quotaDay=today();
     applyPick(localPick());
     toast(AI_OFF_MSG[e.code]||'Claude didn’t answer, so the built-in stylist picked this one.');
   }
@@ -356,17 +357,49 @@ const IC={
 const examplesOnly=()=>S.items.length>0&&S.items.every(i=>i.example);
 
 /* ================= Style tab ================= */
+const rowsReady=()=>CATS.every(c=>S.items.some(i=>i.cat===c.key));
+function onboarding(){
+  const P=S.profile,opt=(arr,v,f)=>arr.map(x=>`<option value="${x}" ${String(x)===String(v)?'selected':''}>${f?f(x):x}</option>`).join('');
+  const steps=CATS.map(c=>({c,n:S.items.filter(i=>i.cat===c.key).length}));
+  const done=steps.filter(x=>x.n).length+(P.sizesSet?1:0);
+  let h=`<section class="onboard" aria-label="Get started"><div class="label">Welcome to remix</div>
+    <h3>Set up your closet in about 2 minutes</h3>
+    <p class="note">Add one top, one middle, and one pair of shoes and Remix starts building outfits. Add more anytime and the combos multiply.</p>
+    <div class="ob-bar" role="progressbar" aria-valuemin="0" aria-valuemax="4" aria-valuenow="${done}"><i style="width:${done*25}%"></i></div>
+    <ol class="ob-steps">
+    <li class="${P.sizesSet?'done':''}"><div class="ob-head"><span class="ob-n">1</span><b>Your sizes</b>${P.sizesSet?'<span class="ob-ok">Done</span>':''}</div>
+      ${P.sizesSet?'':`<div class="sizes"><div class="field"><label for="ob-top">Top</label><select id="ob-top" data-size="top">${opt(LETTER,P.top)}</select></div>
+      <div class="field"><label for="ob-middle">Middle</label><select id="ob-middle" data-size="middle">${opt(LETTER,P.middle)}</select></div>
+      <div class="field"><label for="ob-shoe">Shoes (US)</label><select id="ob-shoe" data-size="shoe">${opt(SHOES,P.shoe)}</select></div></div>
+      <div class="seg" role="group" aria-label="Show trends for">${STYLES.map(([k,t])=>`<button class="seg-btn" data-style="${k}" aria-pressed="${P.style===k}">${t}</button>`).join('')}</div>
+      <button class="secondary-btn" data-sizes-ok>These are my sizes</button>`}</li>`;
+  steps.forEach((x,n)=>{h+=`<li class="${x.n?'done':''}"><div class="ob-head"><span class="ob-n">${n+2}</span><b>Add ${x.c.key==='shoe'?'a pair of shoes':x.c.key==='top'?'a top':'pants, a skirt or shorts'}</b>
+      ${x.n?`<span class="ob-ok">${x.n} added</span>`:`<button class="btn-sm" data-add-cat="${x.c.key}">Add</button>`}</div></li>`});
+  h+=`</ol><p class="note">${CAP.ai?'Snap a photo and Claude fills in the details for you.':'Snap a photo and Remix picks up the color for you.'} Your closet stays on this phone.</p></section>`;
+  return h;
+}
+function nudge(){
+  const n=S.items.length,P=S.profile,standalone=window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+  if(P.nudgeDay===today())return'';
+  if(INSTALL.ios&&!standalone&&n>=3)return`<div class="banner info"><div class="grow"><b>Keep your closet safe.</b> Safari can clear sites you haven’t opened in a week. Tap Share, then Add to Home Screen.</div><button class="btn-sm" data-nudge-hide>Later</button></div>`;
+  const age=P.backupAt?daysSince(P.backupAt):null;
+  if(n>=8&&(age==null||age>=30))return`<div class="banner info"><div class="grow"><b>${n} pieces, only on this phone.</b> Save a backup so you never have to add them again.</div><button class="btn-sm" id="export-btn">Back up</button><button class="link" data-nudge-hide>Later</button></div>`;
+  return'';
+}
 function renderStyle(dir){
   let h='';
+  const firstRun=!rowsReady();
   const bad=needsFit();
   if(bad.length)h+=`<div class="banner bad"><div class="grow"><b>${bad.length} ${bad.length===1?'piece no longer fits':'pieces no longer fit'}</b> your saved sizes.</div><button class="btn-sm" data-go-fit>Review</button></div>`;
+  if(!firstRun)h+=nudge();
   const W=S.weather,cl=(CONDS.find(c=>c[0]===W.cond)||CONDS[1])[1];
   h+=`<section class="wx" aria-label="Today's weather"><div class="wx-top"><div class="wx-ic">${IC[W.cond]}</div>
-    <div style="flex:1;min-width:0"><div class="wx-temp"><span id="wx-num">${W.temp}</span>°F · ${cl}</div><div class="wx-sub">Set today’s weather and the picks follow it</div></div>
+    <div style="flex:1;min-width:0"><div class="wx-temp"><span id="wx-num">${W.temp}</span>°F · ${cl}</div><div class="wx-sub">${W.auto&&W.city&&W.autoDay===today()?`Live for ${esc(W.city)}. Change it if you’re headed somewhere else.`:'Set today’s weather and the picks follow it'}</div></div>
     <button class="btn-sm" id="wx-toggle" aria-expanded="${S.wxOpen}">${S.wxOpen?'Done':'Change'}</button></div>
     ${S.wxOpen?`<input type="range" id="wx-temp" min="-10" max="100" step="1" value="${W.temp}" aria-label="Temperature in Fahrenheit">
     <div class="chips" role="group" aria-label="Conditions">${CONDS.map(([k,t])=>`<button class="chip" data-cond="${k}" aria-pressed="${W.cond===k}">${t}</button>`).join('')}</div>`:''}</section>`;
 
+  if(firstRun){view.innerHTML=h+onboarding();return}
   const ai=CAP.ai;
   h+=`<section class="stylist" aria-label="Stylist"><div><div class="label">Stylist</div><h3>What’s today?</h3></div>
     <div class="occ" role="group" aria-label="Occasion">${OCC.map(([k,t])=>`<button data-occ="${k}" aria-pressed="${S.occasion===k}">${t}</button>`).join('')}</div>
@@ -524,7 +557,7 @@ function renderMe(){
   <section class="panel"><div><h3>Your name on the feed</h3><p class="note">Shown on looks you post. A first name or a nickname works.</p></div>
   <div class="field"><label class="sr" for="p-name">Your name on the feed</label><input id="p-name" maxlength="24" autocomplete="nickname" placeholder="First name or a nickname" value="${esc(P.name||'')}"></div></section>
   ${INSTALL.evt||INSTALL.ios?`<section class="panel"><div><h3>Put Remix on your home screen</h3><p class="note">${INSTALL.evt?'It opens full screen like an app and works offline.':'In Safari, tap Share, then Add to Home Screen. It opens full screen like an app and works offline.'}</p></div>${INSTALL.evt?'<button class="primary-btn" id="install-me">Install Remix</button>':''}</section>`:''}
-  <section class="panel"><div><h3>Your data</h3><p class="note">Your closet lives on this phone. Download a backup before you switch phones or clear your browser.</p></div>
+  <section class="panel"><div><h3>Your data</h3><p class="note">Your closet lives on this phone. Download a backup before you switch phones or clear your browser.${P.backupAt?` Last backup: ${daysSince(P.backupAt)===0?'today':daysSince(P.backupAt)+' days ago'}.`:' You haven’t backed up yet.'}</p></div>
   <div class="two"><button class="secondary-btn" id="export-btn">Download backup</button><label class="secondary-btn" for="import-file" style="text-align:center;cursor:pointer">Restore backup<input id="import-file" type="file" accept="application/json,.json" class="sr"></label></div></section>
   <button class="danger-btn" id="reset">Clear my closet and start over</button>`;
   view.innerHTML=h;
@@ -594,7 +627,9 @@ function shareSheet(){const o=outfit();if(o.length<3){toast('Add a piece to ever
   <div class="field"><label for="s-title">Name the look (optional)</label><input id="s-title" maxlength="40" value="${esc(S.suggestion?S.suggestion.title:'')}"></div>
   <div class="field"><label for="s-cap">Caption</label><textarea id="s-cap" maxlength="140" placeholder="Where are you wearing it?"></textarea></div>
   <p class="note">${shared?'Anyone using Remix can see this post. Each piece shows as a drawing in its color, so your photos stay on your phone.':'The shared feed isn’t reachable right now, so this saves to your phone.'}</p>
-  <button class="primary-btn" id="s-post">${shared?'Post to the feed':'Save to my feed'}</button>`,'Share this look');
+  <button class="primary-btn" id="s-post">${shared?'Post to the feed':'Save to my feed'}</button>
+  <button class="secondary-btn" id="share-img">${navigator.canShare?'Share as a picture':'Save as a picture'}</button>
+  <p class="note" style="text-align:center">Made for Instagram and TikTok stories.</p>`,'Share this look');
   const btn=sheet.querySelector('#s-post');
   btn.onclick=async()=>{
     const name=sheet.querySelector('#s-name').value.trim().slice(0,24);
@@ -603,6 +638,47 @@ function shareSheet(){const o=outfit();if(o.length<3){toast('Add a piece to ever
     btn.disabled=true;btn.textContent='Posting…';
     const ok=await postLook(name,sheet.querySelector('#s-title').value.trim().slice(0,40),sheet.querySelector('#s-cap').value.trim().slice(0,140),o);
     if(ok){closeSheet();go('feed')}else{btn.disabled=false;btn.textContent=shared?'Post to the feed':'Save to my feed'}};
+}
+function loadImg(src){return new Promise(res=>{const i=new Image();i.onload=()=>res(i);i.onerror=()=>res(null);i.src=src})}
+async function lookImage(o,title){
+  const W=1080,H=1920,c=document.createElement('canvas');c.width=W;c.height=H;const x=c.getContext('2d');
+  try{await document.fonts.load('80px "Young Serif"');await document.fonts.load('bold 40px "Courier Prime"')}catch(e){}
+  const cs=getComputedStyle(document.documentElement),v=n=>cs.getPropertyValue(n).trim()||'#000';
+  const paper='#EDE5D6',card='#FBF7EE',ink='#2B241C',rust='#B0452A',line='#C9B99E',well='#E4DAC6';
+  x.fillStyle=paper;x.fillRect(0,0,W,H);
+  for(let k=0;k<9000;k++){x.fillStyle=`rgba(80,60,40,${Math.random()*.05})`;x.fillRect(Math.random()*W,Math.random()*H,2,2)}
+  x.fillStyle=ink;x.font='88px "Young Serif", Georgia, serif';x.textBaseline='alphabetic';
+  x.fillText('re',90,190);const rw=x.measureText('re').width;x.fillStyle=rust;x.fillText('mix',90+rw,190);
+  x.fillStyle=ink;x.font='bold 34px "Courier Prime", monospace';x.fillText((title||'Today’s remix').toUpperCase().slice(0,32),90,270);
+  x.font='30px "Courier Prime", monospace';x.fillStyle='#6F6352';x.fillText('3 pieces I already own. $0 spent.',90,320);
+  const top=380,th=420,gap=34;
+  for(let n=0;n<o.length;n++){const it=o[n],y=top+n*(th+gap),tilt=[-1.2,.8,-.6][n]*Math.PI/180;
+    x.save();x.translate(W/2,y+th/2);x.rotate(tilt);x.translate(-W/2,-(y+th/2));
+    x.fillStyle='rgba(43,36,28,.16)';x.fillRect(96,y+8,W-180,th);
+    x.fillStyle=card;x.fillRect(90,y,W-180,th);x.strokeStyle=line;x.lineWidth=3;x.strokeRect(90,y,W-180,th);
+    x.beginPath();x.arc(140,y+th/2,13,0,7);x.fillStyle=paper;x.fill();x.stroke();
+    x.fillStyle=well;x.fillRect(190,y+40,360,360);
+    const img=await loadImg(isPhoto(it.photo)?it.photo:'data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svgFor(it.type,it.color).replace('<svg ','<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" ')));
+    if(img){if(isPhoto(it.photo)){const s=Math.max(360/img.width,360/img.height),w=img.width*s,h=img.height*s;x.save();x.beginPath();x.rect(190,y+40,360,360);x.clip();x.drawImage(img,190+(360-w)/2,y+40+(360-h)/2,w,h);x.restore()}else x.drawImage(img,220,y+70,300,300)}
+    x.fillStyle=ink;x.font='52px "Young Serif", Georgia, serif';
+    const words=it.name.split(' ');let ln='',ly=y+130;for(const w of words){if(x.measureText(ln+w).width>330&&ln){x.fillText(ln.trim(),590,ly);ly+=62;ln=''}ln+=w+' '}x.fillText(ln.trim(),590,ly);
+    x.font='bold 30px "Courier Prime", monospace';x.fillStyle=rust;x.fillText(['TOP','MIDDLE','SHOES'][n],590,y+th-60);
+    x.restore()}
+  x.fillStyle=ink;x.font='bold 32px "Courier Prime", monospace';x.textAlign='center';
+  x.fillText('Restyled, not rebought.',W/2,H-130);x.font='30px "Courier Prime", monospace';x.fillStyle='#6F6352';x.fillText(location.host,W/2,H-80);
+  return new Promise(r=>c.toBlob(r,'image/png'));
+}
+async function shareImage(){
+  const o=outfit();if(o.length<3)return;const btn=$('#share-img');if(btn){btn.disabled=true;btn.textContent='Making your picture…'}
+  try{
+    const title=(sheet.querySelector('#s-title')||{}).value||'';
+    const blob=await lookImage(o,title.trim());if(!blob)throw 0;
+    const file=new File([blob],'remix-look.png',{type:'image/png'});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){
+      try{await navigator.share({files:[file],title:'My remix',text:'Made this outfit from clothes I already own. '+location.origin})}catch(e){if(e&&e.name==='AbortError')return}
+    }else{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='remix-look.png';document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),5000);toast('Picture saved')}
+  }catch(e){toast('Couldn’t make the picture. Try again.')}
+  finally{const b=$('#share-img');if(b){b.disabled=false;b.textContent=navigator.canShare?'Share as a picture':'Save as a picture'}}
 }
 async function postLook(name,title,caption,o){
   const pieces=o.map(i=>({type:i.type,color:i.color,name:i.name.slice(0,40)}));
@@ -634,11 +710,17 @@ async function reportPost(id){
   catch(e){toast('Couldn’t send that report. Try again.')}
 }
 
+/* Ask the browser not to evict the closet when space runs low or the site goes unused */
+let persistAsked=false;
+async function keepSafe(){
+  if(persistAsked||!navigator.storage||!navigator.storage.persist)return;persistAsked=true;
+  try{if(!(await navigator.storage.persisted()))await navigator.storage.persist()}catch(e){}
+}
 /* Backup and restore: closets live on the phone, so this is how you move to a new one */
 function exportBackup(){
   const data={app:'Remix Closet',version:1,exportedAt:new Date().toISOString(),items:S.items,prof:profBlob(),localPosts:S.localPosts,myTokens:S.myTokens,liked:S.liked};
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(data)],{type:'application/json'}));a.download=`remix-closet-${today()}.json`;
-  document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),5000);toast('Backup downloaded');
+  document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),5000);S.profile.backupAt=today();saveProfile();if(S.tab==='style')render();toast('Backup downloaded. Keep it in Files or iCloud.');
 }
 async function importBackup(file){
   try{
@@ -666,8 +748,8 @@ const toBlob=c=>new Promise(r=>c.toBlob(b=>r(b),'image/jpeg',.85));
 function avgColor(src){const c=document.createElement('canvas');c.width=c.height=40;const x=c.getContext('2d');x.drawImage(src,0,0,40,40);
   const d=x.getImageData(10,10,20,20).data;let r=0,g=0,b=0,n=0;for(let i=0;i<d.length;i+=4){r+=d[i];g+=d[i+1];b+=d[i+2];n++}
   const h=v=>Math.round(v/n).toString(16).padStart(2,'0');return '#'+h(r)+h(g)+h(b)}
-function itemSheet(it){
-  draft=it?Object.assign({},it):{cat:['middle','shoe'].includes(S.closetFilter)?S.closetFilter:'top',type:'',name:'',color:'#9CB59A',size:'',brand:'',price:'',wears:0,photo:null,material:'',care:''};
+function itemSheet(it,preset){
+  draft=it?Object.assign({},it):{cat:preset||(['middle','shoe'].includes(S.closetFilter)?S.closetFilter:'top'),type:'',name:'',color:'#9CB59A',size:'',brand:'',price:'',wears:0,photo:null,material:'',care:''};
   const isNew=!it,ai=CAP.ai;
   openSheet(`<div class="sheet-head"><h3>${isNew?'Add a piece':'Edit piece'}</h3><button class="x" data-close aria-label="Close">×</button></div>
   <div class="capture">
@@ -733,7 +815,10 @@ function itemSheet(it){
     if(isNew){Object.assign(draft,{id:uid(),added:Date.now(),wears:0,lastWorn:null,example:false});S.items.unshift(draft)}
     else{draft.example=false;const i=S.items.findIndex(x=>x.id===draft.id);if(i>=0)S.items[i]=draft}
     const saved=cleanItem(draft);if(saved){const i=S.items.findIndex(x=>x.id===saved.id);S.items[i]=saved;saveItem(saved)}
-    closeSheet();render();const f=fit(draft);toast(isNew?(f.k==='fits'?'Added to your closet':`Added. Heads up: ${f.t.toLowerCase()} for your size.`):'Saved');};
+    const wasReady=S.profile.onboarded;closeSheet();
+    if(isNew)keepSafe();
+    if(isNew&&!wasReady&&rowsReady()){S.profile.onboarded=1;S.profile.sizesSet=1;saveProfile();S.tab='style';S.idx={top:0,middle:0,shoe:0};const p=localPick();if(p)applyPick(p);else render();window.scrollTo({top:0});toast('Your closet is ready. Here’s your first outfit.');return}
+    render();const f=fit(draft);toast(isNew?(f.k==='fits'?'Added to your closet':`Added. Heads up: ${f.t.toLowerCase()} for your size.`):'Saved');};
   if(!isNew){const del=$s('#f-del');del.onclick=()=>{
     const gone=S.items.find(x=>x.id===draft.id);if(!gone)return;
     S.items=S.items.filter(x=>x.id!==gone.id);dropItem(gone.id);closeSheet();render();
@@ -753,11 +838,15 @@ function onClick(e){
   else if('dismiss' in D){S.suggestion=null;render()}
   else if(D.flt){if(D.flt==='fit')S.fitOnly=!S.fitOnly;else S.wxOnly=!S.wxOnly;render()}
   else if(t.id==='wx-toggle'){S.wxOpen=!S.wxOpen;render()}
-  else if(D.cond){S.weather.cond=D.cond;saveProfile();render()}
+  else if(D.cond){S.weather.cond=D.cond;S.weather.auto=false;S.weather.manualDay=today();saveProfile();render()}
   else if(D.tip){S.idx[D.tip]=Number(D.j);S.suggestion=null;render({cat:D.tip,d:1})}
   else if('goFit' in D){S.closetFilter='fit';go('closet')}
   else if(D.filter){S.closetFilter=D.filter;render()}
   else if('add' in D)itemSheet(null);
+  else if(D.addCat)itemSheet(null,D.addCat);
+  else if('sizesOk' in D){S.profile.sizesSet=1;saveProfile();render()}
+  else if('nudgeHide' in D){S.profile.nudgeDay=today();saveProfile();render()}
+  else if(t.id==='share-img')shareImage();
   else if(D.detail)detailSheet(D.detail);
   else if(D.edit){const it=S.items.find(i=>i.id===D.edit);if(it)itemSheet(it)}
   else if(D.styleAround)styleAround(D.styleAround);
@@ -775,11 +864,11 @@ function onClick(e){
     Object.assign(S,{looks:[],log:[],profile:{top:'M',middle:'M',shoe:8,outfitValue:60,style:'women',name:S.profile.name||'',fresh:1},idx:{top:0,middle:0,shoe:0},locked:{},suggestion:null,recent:[],weather:{temp:48,cond:'cloudy'}});
     saveProfile();render();toast('Closet cleared. Add your first piece.')}
 }
-view.addEventListener('click',onClick);sheet.addEventListener('click',e=>{const b=e.target.closest('[data-style-around],[data-edit]');if(b)onClick(e)});
+view.addEventListener('click',onClick);sheet.addEventListener('click',e=>{const b=e.target.closest('[data-style-around],[data-edit],#share-img');if(b)onClick(e)});
 view.addEventListener('change',e=>{
   const T=e.target;
-  if(T.id==='wx-temp'){S.weather.temp=Number(T.value);saveProfile();render()}
-  else if(T.dataset.size){const k=T.dataset.size;S.profile[k]=k==='shoe'?Number(T.value):T.value;saveProfile();render();
+  if(T.id==='wx-temp'){S.weather.temp=Number(T.value);S.weather.auto=false;S.weather.manualDay=today();saveProfile();render()}
+  else if(T.dataset.size){const k=T.dataset.size;S.profile[k]=k==='shoe'?Number(T.value):T.value;if(T.id&&T.id.startsWith('ob-')){saveProfile();return}saveProfile();render();
     const n=needsFit().length;toast(n?`Sizes updated. ${n} ${n===1?'piece needs':'pieces need'} attention.`:'Sizes updated. Everything still fits.')}
   else if(T.id==='p-value'){S.profile.outfitValue=Math.max(0,Number(T.value)||0);saveProfile();render()}
   else if(T.id==='closet-sort'){S.sort=T.value;render()}
@@ -804,7 +893,18 @@ INSTALL.ios=(/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform=
 async function boot(){
   try{const d=await api('health');CAP.ai=!!(d&&d.ai);CAP.feed=!!(d&&d.feed)}catch(e){CAP.ai=false;CAP.feed=false}
   CAP.checked=true;render();if(CAP.feed)loadFeed(true);
+  autoWeather();
+  if(S.items.length)keepSafe();
 }
+let wxAt=0;
+async function autoWeather(){
+  if(S.weather.manualDay===today()||Date.now()-wxAt<30*6e4)return;wxAt=Date.now();
+  try{const d=await api('weather');const t=Math.round(Number(d&&d.temp));if(!Number.isFinite(t))return;
+    S.weather=Object.assign({},S.weather,{temp:Math.max(-10,Math.min(100,t)),cond:CONDS.some(c=>c[0]===d.cond)?d.cond:S.weather.cond,city:String(d.city||'').slice(0,40),auto:true,autoDay:today()});
+    saveProfile();if(S.tab==='style'&&!S.wxOpen)render();
+  }catch(e){}
+}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')autoWeather()});
 async function installApp(){if(!INSTALL.evt)return;INSTALL.evt.prompt();try{await INSTALL.evt.userChoice}catch(e){}INSTALL.evt=null;$('#install-btn').hidden=true;render()}
 window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();INSTALL.evt=e;$('#install-btn').hidden=false;if(S.tab==='me')render()});
 window.addEventListener('appinstalled',()=>{INSTALL.evt=null;$('#install-btn').hidden=true;toast('Remix is on your home screen')});
