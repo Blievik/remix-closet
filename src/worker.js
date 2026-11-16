@@ -120,7 +120,9 @@ async function handleApi(request, env, url) {
 
 // Claude only runs when AI_ENABLED is "true" in wrangler.toml AND the API key secret is set.
 // With it off, the app uses its built-in stylist and reads colors from photos itself: no API cost.
-function aiOn(env) { return env.AI_ENABLED === "true" && Boolean(env.ANTHROPIC_API_KEY); }
+// Claude is switched off for good: the site never calls the Anthropic API, so it costs no tokens
+// whatever AI_ENABLED or ANTHROPIC_API_KEY say. The app uses its built-in stylist and color reading.
+function aiOn(_env) { return false; }
 
 function health(_b, env) {
   return ok({ ok: true, ai: aiOn(env), feed: Boolean(env.DB) });
